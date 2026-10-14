@@ -8,6 +8,9 @@
   python sync.py             обычный запуск (cron)
   python sync.py --baseline  отметить всё, что уже есть в Apple Music, как «старое» (без скачивания)
   python sync.py --dry       ничего не качать и не загружать, только показать план
+
+Звук качается, только если в секретах репозитория задан YT_COOKIES (YouTube блокирует запросы с серверов без входа).
+Без них релиз появляется в каталоге без звука, а при следующем запуске докачивается.
 """
 import json, os, re, subprocess, sys, urllib.request, time
 
@@ -84,25 +87,33 @@ def clean(name):
 
 
 # ---------- YouTube ----------
+HAS_COOKIES = os.path.exists("cookies.txt")
 YT = ["yt-dlp", "--js-runtimes", "node", "--no-warnings"]
-if os.path.exists("cookies.txt"):
+if HAS_COOKIES:
     YT += ["--cookies", "cookies.txt"]
+
+
+def flat(url):
+    p = subprocess.run(YT + ["--flat-playlist", "-J", url], capture_output=True, text=True)
+    if p.returncode != 0 or not p.stdout.strip():
+        print("list failed:", url, p.stderr[-200:])
+        return []
+    try:
+        return [e for e in (json.loads(p.stdout).get("entries") or []) if e and e.get("id")]
+    except Exception:
+        return []
 
 
 def channel_videos():
     vids = []
     for ch in CHANNELS:
         for tab in ("videos", "releases"):
-            p = subprocess.run(YT + ["--flat-playlist", "-J", f"{ch}/{tab}"], capture_output=True, text=True)
-            if p.returncode != 0 or not p.stdout.strip():
-                print("channel list failed:", ch, tab, p.stderr[-200:])
-                continue
-            try:
-                j = json.loads(p.stdout)
-            except Exception:
-                continue
-            for e in j.get("entries") or []:
-                if e and e.get("id") and e.get("title"):
+            for e in flat(f"{ch}/{tab}"):
+                if str(e["id"]).startswith(("OLAK", "PL")):  # релиз = плейлист с аудио-треками
+                    for t in flat(f"https://www.youtube.com/playlist?list={e['id']}"):
+                        if t.get("title"):
+                            vids.append((t["id"], t["title"], t.get("duration") or 0))
+                elif e.get("title"):
                     vids.append((e["id"], e["title"], e.get("duration") or 0))
     return vids
 
@@ -172,11 +183,14 @@ def main():
     if not todo and not pending:
         return
 
-    vids = channel_videos()
-    print("YouTube videos indexed:", len(vids))
+    can_audio = HAS_COOKIES and not DRY
+    vids = channel_videos() if (can_audio or DRY) else []
+    print("YouTube videos indexed:", len(vids), "| audio download:", "on" if can_audio else "off (no YT_COOKIES)")
     os.makedirs("out", exist_ok=True)
 
     def fill(rel):
+        if not can_audio and not DRY:
+            return
         durs = [c["d"] for c in rel["cr"]]
         for i, name in enumerate(rel["tr"]):
             if rel["au"][i]:
