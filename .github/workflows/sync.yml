@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "run | dry | baseline"
+        description: "run | dry | baseline | probe"
         default: run
 
 permissions:
@@ -23,12 +23,34 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - run: pip install -U "yt-dlp[default]"
+      - name: PO token server (replaces YouTube cookies when possible)
+        run: |
+          git clone -q --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /tmp/pot
+          pip install -q bgutil-ytdlp-pot-provider
+          cd /tmp/pot/server && npm ci --silent && npx tsc
+          nohup node build/main.js > /tmp/pot.log 2>&1 &
+          sleep 5
+          curl -s localhost:4416/ping
+          mkdir -p ~/.config/yt-dlp
+          printf '%s\n' '--js-runtimes node' '--extractor-args youtubepot-bgutilhttp:base_url=http://127.0.0.1:4416' > ~/.config/yt-dlp/config
       - name: YouTube cookies (optional)
         env:
           YT_COOKIES: ${{ secrets.YT_COOKIES }}
         run: if [ -n "$YT_COOKIES" ]; then printf '%s' "$YT_COOKIES" > cookies.txt; fi
+      - name: Probe (can this runner download from YouTube?)
+        if: ${{ github.event.inputs.mode == 'probe' }}
+        run: |
+          for c in default mweb web_safari; do
+            echo "== client $c"
+            if [ "$c" = default ]; then A=""; else A="--extractor-args youtube:player_client=$c"; fi
+            yt-dlp $A -f "140/bestaudio" -o /tmp/probe.%(ext)s "https://www.youtube.com/watch?v=q4pVTvUOWJA" 2>&1 | tail -4 && ls -la /tmp/probe.* && break || true
+          done
       - name: Sync
+        if: ${{ github.event.inputs.mode != 'probe' }}
         env:
           GH_TOKEN: ${{ github.token }}
           MODE: ${{ github.event.inputs.mode }}
@@ -39,6 +61,7 @@ jobs:
             *) python sync.py ;;
           esac
       - name: Commit catalog
+        if: ${{ github.event.inputs.mode != 'probe' }}
         run: |
           git config user.name "viperr-sync"
           git config user.email "sync@users.noreply.github.com"
