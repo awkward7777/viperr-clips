@@ -1,0 +1,46 @@
+name: Sync releases
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "run | dry | baseline"
+        default: run
+
+permissions:
+  contents: write
+
+concurrency: sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -U "yt-dlp[default]"
+      - name: YouTube cookies (optional)
+        env:
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
+        run: if [ -n "$YT_COOKIES" ]; then printf '%s' "$YT_COOKIES" > cookies.txt; fi
+      - name: Sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ github.event.inputs.mode }}
+        run: |
+          case "$MODE" in
+            baseline) python sync.py --baseline ;;
+            dry) python sync.py --dry ;;
+            *) python sync.py ;;
+          esac
+      - name: Commit catalog
+        run: |
+          git config user.name "viperr-sync"
+          git config user.email "sync@users.noreply.github.com"
+          git add new.json seen.json
+          git diff --cached --quiet || (git commit -m "Catalog update" && git pull --rebase && git push)
