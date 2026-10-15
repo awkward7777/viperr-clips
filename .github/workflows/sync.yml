@@ -48,7 +48,7 @@ jobs:
           for c in default mweb web_safari; do
             echo "== client $c" >> probe.txt
             if [ "$c" = default ]; then A=""; else A="--extractor-args youtube:player_client=$c"; fi
-            if yt-dlp $A -f "140/bestaudio" -o /tmp/probe.%(ext)s "https://www.youtube.com/watch?v=q4pVTvUOWJA" >> probe.txt 2>&1; then echo "RESULT OK $c" >> probe.txt; ls -la /tmp/probe.* >> probe.txt; break; else echo "RESULT FAIL $c" >> probe.txt; fi
+            if yt-dlp $A -f "140/bestaudio" -o '/tmp/probe.%(ext)s' "https://www.youtube.com/watch?v=q4pVTvUOWJA" >> probe.txt 2>&1; then echo "RESULT OK $c" >> probe.txt; ls -la /tmp/probe.* >> probe.txt; break; else echo "RESULT FAIL $c" >> probe.txt; fi
           done
           tail -c 3000 /tmp/bgutil.log >> probe.txt 2>/dev/null || true
           git config user.name viperr-sync; git config user.email sync@users.noreply.github.com
