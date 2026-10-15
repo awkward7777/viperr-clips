@@ -13,12 +13,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release download clips -p '*.mp4' -D clips
       - name: Detect
-        run: python3 crop.py | tee crop.log
+        run: python3 crop.py > crop.log 2>&1 || true
       - name: Commit
         run: |
           git config user.name viperr-sync
           git config user.email sync@users.noreply.github.com
-          git add -f clipcrop.json crop.log
+          git add -f crop.log; [ -f clipcrop.json ] && git add -f clipcrop.json || true
           git diff --cached --quiet || git commit -m "Clip crop data"
           git pull --rebase --autostash origin main || true
           git push origin HEAD:main
