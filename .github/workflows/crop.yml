@@ -12,6 +12,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release download clips -p '*.mp4' -D clips
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - name: Detect
         run: python3 crop.py > crop.log 2>&1 || true
       - name: Commit
