@@ -64,10 +64,16 @@ jobs:
             dry) python sync.py --dry ;;
             *) python sync.py ;;
           esac
+      - name: Artist photos (Spotify)
+        if: ${{ github.event.inputs.mode != 'probe' }}
+        env:
+          SPOTIFY_ID: ${{ secrets.SPOTIFY_ID }}
+          SPOTIFY_SECRET: ${{ secrets.SPOTIFY_SECRET }}
+        run: python artists.py
       - name: Commit catalog
         if: ${{ github.event.inputs.mode != 'probe' }}
         run: |
           git config user.name "viperr-sync"
           git config user.email "sync@users.noreply.github.com"
-          git add new.json seen.json
+          git add new.json seen.json artists.json 2>/dev/null || git add new.json seen.json
           git diff --cached --quiet || (git commit -m "Catalog update" && git pull --rebase && git push)
