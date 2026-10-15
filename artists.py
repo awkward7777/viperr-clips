@@ -44,7 +44,10 @@ for n in sorted(names):
             if norm(a["name"]) == norm(n) and a["images"]:
                 out[n] = a["images"][0]["url"]; break
     except Exception as e:
-        LOG.append("fail %s: %s" % (n, e)); print("fail", n, e)
+        body = ""
+        try: body = e.read().decode()[:200]
+        except Exception: pass
+        LOG.append("fail %s: %s %s" % (n, e, body)); print("fail", n, e)
 json.dump(out, open("artists.json", "w"), ensure_ascii=False, indent=1)
 print(len(out), "artists")
 
