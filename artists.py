@@ -1,4 +1,5 @@
-import json, os, re, sys, urllib.request, urllib.parse, base64
+import io, contextlib, json, os, re, sys, urllib.request, urllib.parse, base64
+LOG = []
 ID, SEC = os.environ.get("SPOTIFY_ID"), os.environ.get("SPOTIFY_SECRET")
 def get(u, data=None, hdr=None):
     r = urllib.request.Request(u, data=data, headers={"User-Agent":"Mozilla/5.0",**(hdr or {})})
@@ -7,7 +8,7 @@ tok = None
 if ID and SEC:
   try: tok = get("https://accounts.spotify.com/api/token", b"grant_type=client_credentials",
           {"Authorization": "Basic " + base64.b64encode(f"{ID}:{SEC}".encode()).decode()})["access_token"]
-  except Exception as e: print("spotify token fail", e)
+  except Exception as e: LOG.append("token fail: %s" % e); print("spotify token fail", e)
 try: site = get("https://discographyviperr.pages.dev/tracks.json")
 except Exception as e: print("site fail", e); site = []
 extra = json.load(open("new.json")) if os.path.exists("new.json") else []
@@ -34,6 +35,9 @@ for n in sorted(names):
             if norm(a["name"]) == norm(n) and a["images"]:
                 out[n] = a["images"][0]["url"]; break
     except Exception as e:
-        print("fail", n, e)
+        LOG.append("fail %s: %s" % (n, e)); print("fail", n, e)
 json.dump(out, open("artists.json", "w"), ensure_ascii=False, indent=1)
 print(len(out), "artists")
+
+LOG.append("creds=%s tok=%s names=%d found=%d" % (bool(ID and SEC), bool(tok), len(names), len(out)))
+open("artists.log", "w").write("\n".join(LOG))
