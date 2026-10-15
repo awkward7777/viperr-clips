@@ -14,4 +14,4 @@ fail glaive: HTTP Error 403: Forbidden
 fail madk1d: HTTP Error 403: Forbidden
 fail Егор Крид: HTTP Error 403: Forbidden
 fail тёмный принц: HTTP Error 403: Forbidden
-creds=True tok=True names=16 found=0
+genius=True creds=True tok=True names=16 found=0
