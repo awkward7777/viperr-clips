@@ -1,12 +1,20 @@
-Traceback (most recent call last):
-  File "/home/runner/work/viperr-clips/viperr-clips/crop.py", line 11, in <module>
-    pr = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height:format=duration",
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.12/subprocess.py", line 548, in run
-    with Popen(*popenargs, **kwargs) as process:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.12/subprocess.py", line 1026, in __init__
-    self._execute_child(args, executable, preexec_fn, close_fds,
-  File "/usr/lib/python3.12/subprocess.py", line 1955, in _execute_child
-    raise child_exception_type(errno_num, err_msg, err_filename)
-FileNotFoundError: [Errno 2] No such file or directory: 'ffprobe'
+28rboCjfW_E 720 480 -> 0.0 0.0 1.0 1.0
+5jG7A2cRcHs 1920 1080 -> 0.0 0.0 1.0 1.0
+9FfB-mhoy08 1920 1080 -> 0.0 0.0 1.0 1.0
+D7w4z9tNM6I 1920 1080 -> 0.0 0.0 1.0 1.0
+F64MEWy_C80 1920 1080 -> 0.0 0.0 1.0 1.0
+J1gnvqpypi0 1920 1080 -> 0.0 0.0 1.0 1.0
+OmQU0bCWV_0 1920 1080 -> 0.0 0.0 1.0 1.0
+Wb4-qaF7RAs 1920 1080 -> 0.0 0.0 1.0 1.0
+_PKIPF25voE 1440 1080 -> 0.0 0.0 1.0 1.0
+_nIF-UthDm0 1920 1080 -> 0.0 0.0 1.0 1.0
+hG9GG_NbyGs 1918 1080 -> 0.0 0.0 1.0 1.0
+liKap3V1JcM 1278 720 -> 0.0 0.0 1.0 1.0
+otThRmkPnI0 1440 1080 -> 0.0 0.0 1.0 1.0
+vQZY-0rws3w 1920 1080 -> 0.0 0.124 1.0 0.876
+x6UZuBG0BIY 1920 1080 -> 0.0 0.0 1.0 1.0
+xITM4CB5Azw 1920 1080 -> 0.0 0.0 1.0 1.0
+yxc37RhrmxY 1440 1080 -> 0.0 0.0 1.0 1.0
+zG27C7yOiUk 1920 1080 -> 0.0 0.0 1.0 1.0
+zuCcDuPIjb0 960 720 -> 0.0 0.0 1.0 1.0
+1 clips with baked-in bars
