@@ -30,14 +30,6 @@ norm = lambda s: re.sub(r"\W+", "", s.lower())
 for n in sorted(names):
     if n in out: continue
     try:
-        if GT:
-            r = get("https://api.genius.com/search?q=" + urllib.parse.quote(n), hdr={"Authorization": "Bearer " + GT})
-            for h in r["response"]["hits"]:
-                a = h["result"]["primary_artist"]
-                img = a.get("image_url") or ""
-                if norm(a["name"]) == norm(n) and img and "default_avatar" not in img and "default_cover" not in img:
-                    out[n] = img; break
-            continue
         if not tok: break
         r = get("https://api.spotify.com/v1/search?type=artist&limit=5&q=" + urllib.parse.quote(n), hdr={"Authorization": "Bearer " + tok})
         for a in r["artists"]["items"]:
@@ -47,7 +39,7 @@ for n in sorted(names):
         body = ""
         try: body = e.read().decode()[:200]
         except Exception: pass
-        LOG.append("fail %s: %s %s" % (n, e, body)); print("fail", n, e)
+        LOG.append("fail %s: %s %s" % (n, e, body)); print("fail", n, e); break
 json.dump(out, open("artists.json", "w"), ensure_ascii=False, indent=1)
 print(len(out), "artists")
 
