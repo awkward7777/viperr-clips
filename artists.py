@@ -23,16 +23,12 @@ for t in site + extra:
         for n in c.get("a", []) or []:
             if n: names.add(n.strip())
 old = json.load(open("artists.json")) if os.path.exists("artists.json") else {}
-out = dict(old)
+out = {k: v for k, v in old.items() if "dzcdn.net" not in v}
 norm = lambda s: re.sub(r"\W+", "", s.lower())
 for n in sorted(names):
     if n in out: continue
     try:
-        if not tok:
-            for a in get("https://api.deezer.com/search/artist?limit=5&q=" + urllib.parse.quote(n))["data"]:
-                if norm(a["name"]) == norm(n) and a.get("picture_xl"):
-                    out[n] = a["picture_xl"]; break
-            continue
+        if not tok: break
         r = get("https://api.spotify.com/v1/search?type=artist&limit=5&q=" + urllib.parse.quote(n), hdr={"Authorization": "Bearer " + tok})
         for a in r["artists"]["items"]:
             if norm(a["name"]) == norm(n) and a["images"]:
