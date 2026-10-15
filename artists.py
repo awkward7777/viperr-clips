@@ -1,5 +1,6 @@
 import io, contextlib, json, os, re, sys, urllib.request, urllib.parse, base64
 LOG = []
+GT = os.environ.get("GENIUS_TOKEN")
 ID, SEC = os.environ.get("SPOTIFY_ID"), os.environ.get("SPOTIFY_SECRET")
 def get(u, data=None, hdr=None):
     r = urllib.request.Request(u, data=data, headers={"User-Agent":"Mozilla/5.0",**(hdr or {})})
@@ -29,6 +30,14 @@ norm = lambda s: re.sub(r"\W+", "", s.lower())
 for n in sorted(names):
     if n in out: continue
     try:
+        if GT:
+            r = get("https://api.genius.com/search?q=" + urllib.parse.quote(n), hdr={"Authorization": "Bearer " + GT})
+            for h in r["response"]["hits"]:
+                a = h["result"]["primary_artist"]
+                img = a.get("image_url") or ""
+                if norm(a["name"]) == norm(n) and img and "default_avatar" not in img and "default_cover" not in img:
+                    out[n] = img; break
+            continue
         if not tok: break
         r = get("https://api.spotify.com/v1/search?type=artist&limit=5&q=" + urllib.parse.quote(n), hdr={"Authorization": "Bearer " + tok})
         for a in r["artists"]["items"]:
@@ -39,5 +48,5 @@ for n in sorted(names):
 json.dump(out, open("artists.json", "w"), ensure_ascii=False, indent=1)
 print(len(out), "artists")
 
-LOG.append("creds=%s tok=%s names=%d found=%d" % (bool(ID and SEC), bool(tok), len(names), len(out)))
+LOG.append("genius=%s creds=%s tok=%s names=%d found=%d" % (bool(GT), bool(ID and SEC), bool(tok), len(names), len(out)))
 open("artists.log", "w").write("\n".join(LOG))
