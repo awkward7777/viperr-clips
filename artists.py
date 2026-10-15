@@ -3,7 +3,7 @@ LOG = []
 GT = os.environ.get("GENIUS_TOKEN")
 ID, SEC = os.environ.get("SPOTIFY_ID"), os.environ.get("SPOTIFY_SECRET")
 def get(u, data=None, hdr=None):
-    r = urllib.request.Request(u, data=data, headers={"User-Agent":"Mozilla/5.0",**(hdr or {})})
+    r = urllib.request.Request(u, data=data, headers=hdr or {})
     return json.load(urllib.request.urlopen(r, timeout=30))
 tok = None
 if ID and SEC:
@@ -30,6 +30,15 @@ norm = lambda s: re.sub(r"\W+", "", s.lower())
 for n in sorted(names):
     if n in out: continue
     try:
+        if GT:
+            ids = []
+            for h in get("https://api.genius.com/search?q=" + urllib.parse.quote(n), hdr={"Authorization": "Bearer " + GT})["response"]["hits"]:
+                a = h["result"]["primary_artist"]
+                if norm(a["name"]) == norm(n) and a["id"] not in ids: ids.append(a["id"])
+            for i in ids:
+                u = get(f"https://api.genius.com/artists/{i}", hdr={"Authorization": "Bearer " + GT})["response"]["artist"].get("image_url") or ""
+                if u and "default" not in u: out[n] = u; break
+            continue
         if not tok: break
         r = get("https://api.spotify.com/v1/search?type=artist&limit=5&q=" + urllib.parse.quote(n), hdr={"Authorization": "Bearer " + tok})
         for a in r["artists"]["items"]:
