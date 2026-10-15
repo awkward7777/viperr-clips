@@ -1,23 +1,27 @@
 import json, os, re, sys, urllib.request, urllib.parse, base64
 ID, SEC = os.environ.get("SPOTIFY_ID"), os.environ.get("SPOTIFY_SECRET")
 def get(u, data=None, hdr=None):
-    r = urllib.request.Request(u, data=data, headers=hdr or {})
+    r = urllib.request.Request(u, data=data, headers={"User-Agent":"Mozilla/5.0",**(hdr or {})})
     return json.load(urllib.request.urlopen(r, timeout=30))
 tok = None
 if ID and SEC:
   try: tok = get("https://accounts.spotify.com/api/token", b"grant_type=client_credentials",
           {"Authorization": "Basic " + base64.b64encode(f"{ID}:{SEC}".encode()).decode()})["access_token"]
   except Exception as e: print("spotify token fail", e)
-site = get("https://discographyviperr.pages.dev/tracks.json")
+try: site = get("https://discographyviperr.pages.dev/tracks.json")
+except Exception as e: print("site fail", e); site = []
 extra = json.load(open("new.json")) if os.path.exists("new.json") else []
 names = set()
-for t in (site if isinstance(site, list) else site.get("tracks", site)) + extra:
+site = site if isinstance(site, list) else site.get("tracks", [])
+for t in site + extra:
     for k in ("a",):
         v = t.get(k)
         for n in (v if isinstance(v, list) else [v]):
-            if n: names.add(n.strip())
+            for p in re.split(r",|&| feat\.? | x ", n or ""):
+                if p.strip(): names.add(p.strip())
     for c in t.get("cr", []) or []:
-        for n in c.get("a", []) or []: names.add(n.strip())
+        for n in c.get("a", []) or []:
+            if n: names.add(n.strip())
 old = json.load(open("artists.json")) if os.path.exists("artists.json") else {}
 out = dict(old)
 norm = lambda s: re.sub(r"\W+", "", s.lower())

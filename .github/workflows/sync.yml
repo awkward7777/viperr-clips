@@ -69,7 +69,7 @@ jobs:
         env:
           SPOTIFY_ID: ${{ secrets.SPOTIFY_ID }}
           SPOTIFY_SECRET: ${{ secrets.SPOTIFY_SECRET }}
-        run: python artists.py
+        run: python artists.py || true
       - name: Commit catalog
         if: ${{ github.event.inputs.mode != 'probe' }}
         run: |
