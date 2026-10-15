@@ -1,17 +1,97 @@
-fail 9mice: HTTP Error 403: Forbidden
-fail ANIKV: HTTP Error 403: Forbidden
-fail Contact Sports: HTTP Error 403: Forbidden
-fail Dom Corleo: HTTP Error 403: Forbidden
-fail K: HTTP Error 403: Forbidden
-fail Kai Angel: HTTP Error 403: Forbidden
-fail Kurtains: HTTP Error 403: Forbidden
-fail LIL KRYSTALLL: HTTP Error 403: Forbidden
-fail LILDRUGHILL: HTTP Error 403: Forbidden
-fail Nikitsunami: HTTP Error 403: Forbidden
-fail Pupis: HTTP Error 403: Forbidden
-fail UNEEK: HTTP Error 403: Forbidden
-fail glaive: HTTP Error 403: Forbidden
-fail madk1d: HTTP Error 403: Forbidden
-fail Егор Крид: HTTP Error 403: Forbidden
-fail тёмный принц: HTTP Error 403: Forbidden
+fail 9mice: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail ANIKV: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail Contact Sports: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail Dom Corleo: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail K: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail Kai Angel: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail Kurtains: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail LIL KRYSTALLL: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail LILDRUGHILL: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail Nikitsunami: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail Pupis: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail UNEEK: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail glaive: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail madk1d: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail Егор Крид: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
+fail тёмный принц: HTTP Error 403: Forbidden <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"
 genius=True creds=True tok=True names=16 found=0
