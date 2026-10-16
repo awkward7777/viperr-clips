@@ -118,6 +118,27 @@ def channel_videos():
     return vids
 
 
+def ytm_match(track, artist, dur):
+    """Запасной поиск по метаданным Apple Music через ytmusicapi: только официальные «песни» нужного артиста и той же длины (±3 с)."""
+    try:
+        from ytmusicapi import YTMusic
+        res = YTMusic().search(f"{artist} {track}", filter="songs", limit=10)
+    except Exception as e:
+        print("ytmusicapi unavailable:", e)
+        return None
+    names = {norm(x) for x in re.split(r", | & ", artist)}
+    for r in res:
+        if norm(r.get("title", "")) != norm(track) or not r.get("videoId"):
+            continue
+        if not any(norm(a.get("name", "")) in names for a in r.get("artists", [])):
+            continue
+        d = r.get("duration_seconds") or 0
+        if dur and d and abs(d - dur) > 3:
+            continue
+        return r["videoId"]
+    return None
+
+
 def match(track, dur, vids):
     n = norm(track)
     if not n:
@@ -177,7 +198,9 @@ def main():
         print("baseline saved:", len(seen))
         return
 
-    todo = [a for a in albums if str(a["collectionId"]) not in seen and norm(clean(a["collectionName"])) not in site_titles]
+    # дубли оригиналов на сайте (Tainted Love, Narcotic) — не добавляем
+    block = {norm("Club Tainted"), norm("Your Love")}
+    todo = [a for a in albums if str(a["collectionId"]) not in seen and norm(clean(a["collectionName"])) not in site_titles | block]
     pending = [r for r in new if any(x is None for x in r["au"])]
     print("new releases:", [a["collectionName"] for a in todo], "| pending:", [r["t"] for r in pending])
     if not todo and not pending:
@@ -195,7 +218,7 @@ def main():
         for i, name in enumerate(rel["tr"]):
             if rel["au"][i]:
                 continue
-            vid = match(name, durs[i], vids)
+            vid = match(name, durs[i], vids) or ytm_match(name, rel["a"], durs[i])
             print("  ", name, "->", vid)
             if not vid or DRY:
                 continue
@@ -216,7 +239,7 @@ def main():
             "id": f"am{a['collectionId']}", "t": clean(a["collectionName"]), "type": kind(a["collectionName"]),
             "y": int(a["releaseDate"][:4]), "dt": a["releaseDate"][:10], "a": a["artistName"],
             "tr": names, "au": [None] * len(names), "lf": [None] * len(names),
-            "cover": re.sub(r"\d+x\d+bb", "1000x1000bb", a["artworkUrl100"]),
+            "cover": re.sub(r"\d+x\d+bb", "3000x3000bb", a["artworkUrl100"]),
             "h": int(a["collectionId"]) % 360,
             "cr": [{"d": round(t.get("trackTimeMillis", 0) / 1000),
                     "a": [x.strip() for x in re.split(r", | & ", t["artistName"]) if x.strip()]} for t in tr],

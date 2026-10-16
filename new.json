@@ -1,59 +1,5 @@
 [
  {
-  "id": "am1861895951",
-  "t": "Club Tainted",
-  "type": "Сингл",
-  "y": 2025,
-  "dt": "2025-12-19",
-  "a": "Kai Angel",
-  "tr": [
-   "Club Tainted"
-  ],
-  "au": [
-   null
-  ],
-  "lf": [
-   null
-  ],
-  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/05/16/f3/0516f3b6-271e-c585-d46d-2f738ef07ce4/cover.jpg/1000x1000bb.jpg",
-  "h": 71,
-  "cr": [
-   {
-    "d": 162,
-    "a": [
-     "Kai Angel"
-    ]
-   }
-  ]
- },
- {
-  "id": "am1746458431",
-  "t": "Your Love",
-  "type": "Сингл",
-  "y": 2024,
-  "dt": "2024-05-17",
-  "a": "9mice",
-  "tr": [
-   "Your Love"
-  ],
-  "au": [
-   null
-  ],
-  "lf": [
-   null
-  ],
-  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/4a/b0/4c/4ab04cdf-e899-69ec-fa17-2520edd70027/cover.jpg/1000x1000bb.jpg",
-  "h": 151,
-  "cr": [
-   {
-    "d": 120,
-    "a": [
-     "9mice"
-    ]
-   }
-  ]
- },
- {
   "id": "am1889890379",
   "t": "Jealous",
   "type": "Сингл",
@@ -69,7 +15,7 @@
   "lf": [
    null
   ],
-  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/4e/d8/3f/4ed83fe5-934a-e571-0b23-5261f6143c29/cover.jpg/1000x1000bb.jpg",
+  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/4e/d8/3f/4ed83fe5-934a-e571-0b23-5261f6143c29/cover.jpg/3000x3000bb.jpg",
   "h": 179,
   "cr": [
    {
@@ -99,7 +45,7 @@
   "lf": [
    null
   ],
-  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/1e/4c/66/1e4c66ed-48f0-8ae5-d888-0a9f71a567ad/cover.jpg/1000x1000bb.jpg",
+  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/1e/4c/66/1e4c66ed-48f0-8ae5-d888-0a9f71a567ad/cover.jpg/3000x3000bb.jpg",
   "h": 331,
   "cr": [
    {
@@ -126,7 +72,7 @@
   "lf": [
    null
   ],
-  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/9d/c2/f0/9dc2f0c6-91a1-e24a-bd46-7ebbea17c597/artwork.jpg/1000x1000bb.jpg",
+  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/9d/c2/f0/9dc2f0c6-91a1-e24a-bd46-7ebbea17c597/artwork.jpg/3000x3000bb.jpg",
   "h": 233,
   "cr": [
    {

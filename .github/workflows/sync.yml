@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: pip install -U "yt-dlp[default]"
+      - run: pip install -U "yt-dlp[default]" ytmusicapi
       - name: PO token server (replaces YouTube cookies when possible)
         run: |
           git clone -q --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /tmp/pot
