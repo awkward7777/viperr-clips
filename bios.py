@@ -11,7 +11,7 @@ def flat(d):
         t = d.get("tag"); c = flat(d.get("children", []))
         return c + ("\n\n" if t in ("p", "br") else "")
     return ""
-out = json.load(open("bios.json")) if os.path.exists("bios.json") else {}
+out = json.load(open("bios_i18n.json")) if os.path.exists("bios_i18n.json") else {}
 if GT:
     slugs = json.load(open("slugs.json")) if os.path.exists("slugs.json") else {}
     names = list(json.load(open("artists.json")).keys())
@@ -28,5 +28,7 @@ if GT:
                 d = re.split(r"\n\s*(?:Дискография|Официальный сайт|Сообщество ВКонтакте|Страница ВКонтакте|Телеграм-канал|Discography|Official Website)\s*\n", d)[0].strip()
                 if d and d != "?" and len(d) > 40: out[n] = d; break
         except Exception as e: print("fail", n, e)
-json.dump(out, open("bios.json", "w"), ensure_ascii=False, indent=1)
+json.dump(out, open("bios_i18n.json", "w"), ensure_ascii=False, indent=1)
+# bios.json — плоский формат (строки) для старых версий приложения
+json.dump({k: (v.get("ru") or v.get("en") if isinstance(v, dict) else v) for k, v in out.items()}, open("bios.json", "w"), ensure_ascii=False, indent=1)
 print(len(out), "bios")
