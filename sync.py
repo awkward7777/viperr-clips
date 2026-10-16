@@ -180,9 +180,32 @@ def upload(f):
 
 
 # ---------- main ----------
+def adopt_manual(new):
+    """Файлы, загруженные в релиз вручную (имя «<id>-<номер>.m4a|mp3|…»), подставляются в new.json."""
+    p = subprocess.run(["gh", "release", "view", TAG, "-R", REPO, "--json", "assets"], capture_output=True, text=True)
+    if p.returncode != 0:
+        return False
+    names = {a["name"] for a in json.loads(p.stdout).get("assets", [])}
+    changed = False
+    for rel in new:
+        for i in range(len(rel["tr"])):
+            if rel["au"][i]:
+                continue
+            for ext in ("m4a", "mp3", "ogg", "opus", "flac", "wav", "aac"):
+                n = f"{rel['id']}-{i + 1}.{ext}"
+                if n in names:
+                    rel["au"][i] = f"https://github.com/{REPO}/releases/download/{TAG}/{n}"
+                    print("adopted manual upload:", n)
+                    changed = True
+                    break
+    return changed
+
+
 def main():
     seen = load("seen.json", [])
     new = load("new.json", [])
+    if adopt_manual(new) and not DRY:
+        save("new.json", new)
     site = []
     try:
         site = jget(SITE + "tracks.json")
