@@ -122,7 +122,7 @@
    "chrome hearts"
   ],
   "au": [
-   null,
+   "https://github.com/awkward7777/viperr-clips/releases/download/audio/31-1.mp3",
    "https://discographyviperr.pages.dev/audio/chateau.mp3",
    "https://discographyviperr.pages.dev/audio/gladiator.mp3",
    "https://discographyviperr.pages.dev/audio/office-song.mp3",
@@ -146,7 +146,7 @@
      "Shh!"
     ],
     "isrc": "FRX762654565",
-    "d": 60
+    "d": 126
    },
    {
     "a": [
@@ -299,7 +299,10 @@
   ],
   "cover": "https://discographyviperr.pages.dev/covers/shh-excl.jpg",
   "lf": [
-   null,
+   [
+    -7.6,
+    -0.4
+   ],
    [
     -7.6,
     2.9
