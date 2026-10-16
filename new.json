@@ -40,18 +40,23 @@
    "ГЕРОИНЯ"
   ],
   "au": [
-   null
+   "https://discographyviperr.pages.dev/audio/geroinya.mp3"
   ],
   "lf": [
-   null
+   -7.7,
+   0.8
   ],
-  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/1e/4c/66/1e4c66ed-48f0-8ae5-d888-0a9f71a567ad/cover.jpg/3000x3000bb.jpg",
+  "cover": "https://raw.githubusercontent.com/awkward7777/viperr-clips/main/covers/geroinya.png",
   "h": 331,
   "cr": [
    {
     "d": 143,
     "a": [
      "9mice"
+    ],
+    "p": [
+     "thr6x",
+     "ziplocker"
     ]
    }
   ]
@@ -67,10 +72,11 @@
    "New-York"
   ],
   "au": [
-   null
+   "https://discographyviperr.pages.dev/audio/new-york.mp3"
   ],
   "lf": [
-   null
+   -8.9,
+   0.5
   ],
   "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/9d/c2/f0/9dc2f0c6-91a1-e24a-bd46-7ebbea17c597/artwork.jpg/3000x3000bb.jpg",
   "h": 233,
@@ -79,6 +85,11 @@
     "d": 87,
     "a": [
      "9mice"
+    ],
+    "p": [
+     "BNYX®",
+     "snypes",
+     "Leó Xin"
     ]
    }
   ]

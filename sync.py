@@ -201,10 +201,39 @@ def adopt_manual(new):
     return changed
 
 
+def ingest_manual(new):
+    """Файлы из папки manual/ (имя «<id>-<номер>.<расширение>») → релиз audio → ссылка и громкость в new.json."""
+    import glob
+    changed = False
+    for f in sorted(glob.glob("manual/*")):
+        m = re.match(r"(.+)-(\d+)\.(\w+)$", os.path.basename(f))
+        rel = next((r for r in new if m and r["id"] == m.group(1)), None)
+        if not m or not rel or not 1 <= int(m.group(2)) <= len(rel["tr"]):
+            print("manual: пропуск", f)
+            continue
+        n, ext = int(m.group(2)), m.group(3).lower()
+        out = f
+        if ext not in ("m4a", "mp3"):  # flac/wav/… → m4a (AAC 256k, без обложки)
+            out = f"manual/{m.group(1)}-{n}.m4a"
+            p = subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", f, "-vn", "-map_metadata", "-1", "-c:a", "aac",
+                                "-b:a", "256k", "-movflags", "+faststart", out], capture_output=True, text=True)
+            if p.returncode != 0:
+                print("manual: ошибка конвертации", f, p.stderr[-200:])
+                continue
+        rel["lf"][n - 1] = loudness(out)
+        upload(out)
+        rel["au"][n - 1] = f"https://github.com/{REPO}/releases/download/{TAG}/{os.path.basename(out)}"
+        print("manual: загружен", os.path.basename(out))
+        for x in {f, out}:
+            os.remove(x)
+        changed = True
+    return changed
+
+
 def main():
     seen = load("seen.json", [])
     new = load("new.json", [])
-    if adopt_manual(new) and not DRY:
+    if not DRY and (ingest_manual(new) | adopt_manual(new)):
         save("new.json", new)
     site = []
     try:

@@ -81,5 +81,5 @@ jobs:
         run: |
           git config user.name "viperr-sync"
           git config user.email "sync@users.noreply.github.com"
-          git add new.json seen.json artists.json artists.log bios.json 2>/dev/null || git add new.json seen.json
+          git add -A manual 2>/dev/null; git add new.json seen.json artists.json artists.log bios.json 2>/dev/null || git add new.json seen.json
           git diff --cached --quiet || (git commit -m "Catalog update" && git pull --rebase && git push)
