@@ -229,6 +229,14 @@ def ingest_manual(new):
                 print("manual: ошибка конвертации", f, p.stderr[-200:])
                 continue
         rel["lf"][n - 1] = loudness(out)
+        try:   # реальная длительность и снятие пометки «вступление/тишина»
+            d = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out], capture_output=True, text=True).stdout.strip()
+            if d and rel.get("cr") and n - 1 < len(rel["cr"]):
+                rel["cr"][n - 1]["d"] = round(float(d))
+            if rel.get("ins") and n - 1 in rel["ins"]:
+                rel["ins"].remove(n - 1)
+        except Exception as ex:
+            print("duration failed:", ex)
         upload(out)
         rel["au"][n - 1] = f"https://github.com/{REPO}/releases/download/{TAG}/{os.path.basename(out)}"
         print("manual: загружен", os.path.basename(out))
