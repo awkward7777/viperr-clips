@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "/home/runner/work/viperr-clips/viperr-clips/sync.py", line 311, in <module>
+    main()
+  File "/home/runner/work/viperr-clips/viperr-clips/sync.py", line 236, in main
+    if not DRY and (ingest_manual(new) | adopt_manual(new)):
+                    ^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/viperr-clips/viperr-clips/sync.py", line 223, in ingest_manual
+    rel["lf"][n - 1] = loudness(out)
+                       ^^^^^^^^^^^^^
+  File "/home/runner/work/viperr-clips/viperr-clips/sync.py", line 169, in loudness
+    p = subprocess.run(["ffmpeg", "-nostats", "-i", f, "-af", "ebur128=peak=true", "-f", "null", "-"], capture_output=True, text=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'ffmpeg'
