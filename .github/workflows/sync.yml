@@ -71,10 +71,15 @@ jobs:
           SPOTIFY_SECRET: ${{ secrets.SPOTIFY_SECRET }}
           GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}
         run: python artists.py || true
+      - name: Artist bios (Genius)
+        if: ${{ github.event.inputs.mode != 'probe' }}
+        env:
+          GENIUS_TOKEN: ${{ secrets.GENIUS_TOKEN }}
+        run: python bios.py || true
       - name: Commit catalog
         if: ${{ github.event.inputs.mode != 'probe' }}
         run: |
           git config user.name "viperr-sync"
           git config user.email "sync@users.noreply.github.com"
-          git add new.json seen.json artists.json artists.log 2>/dev/null || git add new.json seen.json
+          git add new.json seen.json artists.json artists.log bios.json 2>/dev/null || git add new.json seen.json
           git diff --cached --quiet || (git commit -m "Catalog update" && git pull --rebase && git push)
