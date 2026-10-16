@@ -166,6 +166,14 @@ def download(vid, out):
 
 
 def loudness(f):
+    try:
+        return _loudness(f)
+    except Exception as e:
+        print("loudness failed:", e)
+        return None
+
+
+def _loudness(f):
     p = subprocess.run(["ffmpeg", "-nostats", "-i", f, "-af", "ebur128=peak=true", "-f", "null", "-"], capture_output=True, text=True)
     s = p.stderr.split("Summary:")[-1]
     i = re.search(r"I:\s+(-?[\d.]+) LUFS", s)
