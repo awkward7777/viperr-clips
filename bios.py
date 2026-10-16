@@ -25,6 +25,7 @@ if GT:
                     if not norm(a["url"].split("/artists/")[-1]).endswith(norm(sl)): continue
                 elif norm(a["name"]) != norm(n): continue
                 d = get(f"https://api.genius.com/artists/{a['id']}?text_format=plain")["response"]["artist"].get("description", {}).get("plain", "").strip()
+                d = re.split(r"\n\s*(?:Дискография|Официальный сайт|Сообщество ВКонтакте|Страница ВКонтакте|Телеграм-канал|Discography|Official Website)\s*\n", d)[0].strip()
                 if d and d != "?" and len(d) > 40: out[n] = d; break
         except Exception as e: print("fail", n, e)
 json.dump(out, open("bios.json", "w"), ensure_ascii=False, indent=1)
