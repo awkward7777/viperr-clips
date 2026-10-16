@@ -32,15 +32,15 @@ def genius_ids(n):
     """id артистов Genius: по точному имени или по slug из slugs.json (ссылка genius.com/artists/<slug>)."""
     ids, seen_urls = [], []
     slug = slugs.get(n)
-    for q in ([slug, slug.replace("-", " "), n] if slug else [n]):
+    for q in ([slug, slug.replace("-", " "), n, n + " rap"] if slug else [n]):
         for h in get("https://api.genius.com/search?q=" + urllib.parse.quote(q), hdr={"Authorization": "Bearer " + GT})["response"]["hits"]:
             r = h["result"]
             for a in [r["primary_artist"]] + (r.get("featured_artists") or []):
                 seen_urls.append(a.get("url", ""))
-                ok = a["url"].lower().rstrip("/").endswith("/artists/" + slug.lower()) if slug else norm(a["name"]) == norm(n)
+                ok = norm(a["url"].split("/artists/")[-1]).endswith(norm(slug)) if slug else norm(a["name"]) == norm(n)
                 if ok and a["id"] not in ids: ids.append(a["id"])
         if ids: break
-    if slug and not ids: LOG.append("no slug match %s: %s" % (n, sorted(set(seen_urls))[:12]))
+    if slug and not ids: LOG.append("no slug match %s: %s" % (n, sorted(set(seen_urls))[-30:]))
     return ids
 for n in sorted(names | set(slugs)):
     if n in out: continue

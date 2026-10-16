@@ -22,7 +22,7 @@ if GT:
             for h in get("https://api.genius.com/search?q=" + urllib.parse.quote(sl or n))["response"]["hits"]:
                 a = h["result"]["primary_artist"]
                 if sl:
-                    if not a["url"].lower().rstrip("/").endswith("/artists/" + sl.lower()): continue
+                    if not norm(a["url"].split("/artists/")[-1]).endswith(norm(sl)): continue
                 elif norm(a["name"]) != norm(n): continue
                 d = get(f"https://api.genius.com/artists/{a['id']}?text_format=plain")["response"]["artist"].get("description", {}).get("plain", "").strip()
                 if d and d != "?" and len(d) > 40: out[n] = d; break
