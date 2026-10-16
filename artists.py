@@ -27,14 +27,23 @@ for t in site + extra:
 old = json.load(open("artists.json")) if os.path.exists("artists.json") else {}
 out = {k: v for k, v in old.items() if "dzcdn.net" not in v}
 norm = lambda s: re.sub(r"\W+", "", s.lower())
-for n in sorted(names):
+slugs = json.load(open("slugs.json")) if os.path.exists("slugs.json") else {}
+def genius_ids(n):
+    """id артистов Genius: по точному имени или по slug из slugs.json (ссылка genius.com/artists/<slug>)."""
+    ids = []
+    slug = slugs.get(n)
+    for q in ([slug, n] if slug else [n]):
+        for h in get("https://api.genius.com/search?q=" + urllib.parse.quote(q), hdr={"Authorization": "Bearer " + GT})["response"]["hits"]:
+            a = h["result"]["primary_artist"]
+            ok = a["url"].lower().rstrip("/").endswith("/artists/" + slug.lower()) if slug else norm(a["name"]) == norm(n)
+            if ok and a["id"] not in ids: ids.append(a["id"])
+        if ids: break
+    return ids
+for n in sorted(names | set(slugs)):
     if n in out: continue
     try:
         if GT:
-            ids = []
-            for h in get("https://api.genius.com/search?q=" + urllib.parse.quote(n), hdr={"Authorization": "Bearer " + GT})["response"]["hits"]:
-                a = h["result"]["primary_artist"]
-                if norm(a["name"]) == norm(n) and a["id"] not in ids: ids.append(a["id"])
+            ids = genius_ids(n)
             for i in ids:
                 u = get(f"https://api.genius.com/artists/{i}", hdr={"Authorization": "Bearer " + GT})["response"]["artist"].get("image_url") or ""
                 if u and "default" not in u: out[n] = u; break
