@@ -1,0 +1,20 @@
+name: genres-probe
+on:
+  workflow_dispatch:
+    inputs:
+      limit: { description: "сколько треков", default: "20" }
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - run: pip install essentia-tensorflow numpy
+      - run: python genres.py
+        env: { LIMIT: "${{ inputs.limit }}" }
+      - run: |
+          git config user.name "genres-bot"; git config user.email "bot@users.noreply.github.com"
+          git add genre_probe.json && git commit -m "genre probe" && git push || true
