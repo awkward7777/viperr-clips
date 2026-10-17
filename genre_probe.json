@@ -1,0 +1,502 @@
+{
+ "1:0": {
+  "name": "щ",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.259
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.116
+   ],
+   [
+    "Electronic---Hip Hop",
+    0.101
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.082
+   ],
+   [
+    "Hip Hop---Grime",
+    0.077
+   ]
+  ]
+ },
+ "10:0": {
+  "name": "FAKE LOVE",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.373
+   ],
+   [
+    "Pop---K-pop",
+    0.303
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.289
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.27
+   ],
+   [
+    "Hip Hop---Conscious",
+    0.075
+   ]
+  ]
+ },
+ "15:2": {
+  "name": "i hate fashion shows",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.399
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.387
+   ],
+   [
+    "Hip Hop---Hardcore Hip-Hop",
+    0.19
+   ],
+   [
+    "Hip Hop---Conscious",
+    0.122
+   ],
+   [
+    "Hip Hop---Grime",
+    0.075
+   ]
+  ]
+ },
+ "17:7": {
+  "name": "NO PAIN",
+  "top": [
+   [
+    "Pop---K-pop",
+    0.2
+   ],
+   [
+    "Hip Hop---Trap",
+    0.111
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.097
+   ],
+   [
+    "Latin---Reggaeton",
+    0.091
+   ],
+   [
+    "Electronic---Tropical House",
+    0.083
+   ]
+  ]
+ },
+ "18:9": {
+  "name": "fire walk with me",
+  "top": [
+   [
+    "Electronic---Ambient",
+    0.2
+   ],
+   [
+    "Electronic---Experimental",
+    0.16
+   ],
+   [
+    "Electronic---Industrial",
+    0.094
+   ],
+   [
+    "Electronic---Dark Ambient",
+    0.087
+   ],
+   [
+    "Electronic---Techno",
+    0.056
+   ]
+  ]
+ },
+ "20:4": {
+  "name": "RESTART",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.423
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.298
+   ],
+   [
+    "Pop---K-pop",
+    0.198
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.15
+   ],
+   [
+    "Hip Hop---Conscious",
+    0.114
+   ]
+  ]
+ },
+ "21:0": {
+  "name": "JUMP!",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.372
+   ],
+   [
+    "Pop---K-pop",
+    0.326
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.246
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.108
+   ],
+   [
+    "Electronic---Hip Hop",
+    0.103
+   ]
+  ]
+ },
+ "28:0": {
+  "name": "Limousine Music",
+  "top": [
+   [
+    "Electronic---Synth-pop",
+    0.229
+   ],
+   [
+    "Pop---K-pop",
+    0.195
+   ],
+   [
+    "Electronic---Electro",
+    0.15
+   ],
+   [
+    "Electronic---Synthwave",
+    0.114
+   ],
+   [
+    "Electronic---House",
+    0.089
+   ]
+  ]
+ },
+ "30:11": {
+  "name": "Limousine Music",
+  "top": [
+   [
+    "Electronic---Synth-pop",
+    0.229
+   ],
+   [
+    "Pop---K-pop",
+    0.195
+   ],
+   [
+    "Electronic---Electro",
+    0.15
+   ],
+   [
+    "Electronic---Synthwave",
+    0.114
+   ],
+   [
+    "Electronic---House",
+    0.089
+   ]
+  ]
+ },
+ "31:10": {
+  "name": "1971 Rockstar",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.265
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.146
+   ],
+   [
+    "Hip Hop---Hardcore Hip-Hop",
+    0.118
+   ],
+   [
+    "Pop---K-pop",
+    0.117
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.113
+   ]
+  ]
+ },
+ "41:0": {
+  "name": "mercedes benz",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.381
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.189
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.13
+   ],
+   [
+    "Hip Hop---Grime",
+    0.123
+   ],
+   [
+    "Electronic---Dubstep",
+    0.12
+   ]
+  ]
+ },
+ "53:0": {
+  "name": "ЗАБУДЕТ",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.428
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.393
+   ],
+   [
+    "Electronic---Hip Hop",
+    0.093
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.091
+   ],
+   [
+    "Hip Hop---Hardcore Hip-Hop",
+    0.057
+   ]
+  ]
+ },
+ "57:3": {
+  "name": "DOROGAYA",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.612
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.486
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.099
+   ],
+   [
+    "Pop---K-pop",
+    0.069
+   ],
+   [
+    "Rock---Alternative Rock",
+    0.064
+   ]
+  ]
+ },
+ "59:1": {
+  "name": "MMW",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.242
+   ],
+   [
+    "Hip Hop---Horrorcore",
+    0.222
+   ],
+   [
+    "Hip Hop---Crunk",
+    0.179
+   ],
+   [
+    "Hip Hop---Gangsta",
+    0.168
+   ],
+   [
+    "Hip Hop---Hardcore Hip-Hop",
+    0.153
+   ]
+  ]
+ },
+ "68:3": {
+  "name": "kill bill / evian",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.504
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.337
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.264
+   ],
+   [
+    "Electronic---Dubstep",
+    0.156
+   ],
+   [
+    "Electronic---Hip Hop",
+    0.112
+   ]
+  ]
+ },
+ "71:0": {
+  "name": "FACE",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.441
+   ],
+   [
+    "Hip Hop---Hardcore Hip-Hop",
+    0.175
+   ],
+   [
+    "Pop---K-pop",
+    0.166
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.151
+   ],
+   [
+    "Hip Hop---Conscious",
+    0.129
+   ]
+  ]
+ },
+ "71:13": {
+  "name": "RAZRUSHIT",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.279
+   ],
+   [
+    "Hip Hop---Cloud Rap",
+    0.256
+   ],
+   [
+    "Pop---K-pop",
+    0.155
+   ],
+   [
+    "Hip Hop---Pop Rap",
+    0.113
+   ],
+   [
+    "Hip Hop---Conscious",
+    0.061
+   ]
+  ]
+ },
+ "83:0": {
+  "name": "RANGE",
+  "top": [
+   [
+    "Hip Hop---Pop Rap",
+    0.253
+   ],
+   [
+    "Hip Hop---Trap",
+    0.187
+   ],
+   [
+    "Pop---K-pop",
+    0.174
+   ],
+   [
+    "Hip Hop---Grime",
+    0.097
+   ],
+   [
+    "Hip Hop---Horrorcore",
+    0.077
+   ]
+  ]
+ },
+ "87:2": {
+  "name": "Phoenix",
+  "top": [
+   [
+    "Hip Hop---Trap",
+    0.16
+   ],
+   [
+    "Pop---K-pop",
+    0.138
+   ],
+   [
+    "Electronic---Electro",
+    0.112
+   ],
+   [
+    "Hip Hop---Grime",
+    0.097
+   ],
+   [
+    "Electronic---Electro House",
+    0.079
+   ]
+  ]
+ },
+ "87:15": {
+  "name": "Hollywood Takeover...",
+  "top": [
+   [
+    "Rock---Punk",
+    0.388
+   ],
+   [
+    "Rock---Melodic Hardcore",
+    0.385
+   ],
+   [
+    "Rock---Hardcore",
+    0.141
+   ],
+   [
+    "Rock---Pop Punk",
+    0.135
+   ],
+   [
+    "Rock---Metalcore",
+    0.101
+   ]
+  ]
+ }
+}
