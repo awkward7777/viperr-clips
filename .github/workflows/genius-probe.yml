@@ -1,0 +1,9 @@
+name: genius-probe
+on: workflow_dispatch
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 genius_probe.py
+        env: { GENIUS_TOKEN: "${{ secrets.GENIUS_TOKEN }}" }
