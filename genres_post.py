@@ -29,6 +29,14 @@ for k, v in raw.items():
         c = [n for n, p in keep if p >= 0.12 and n not in MAIN][:1]
         sub = c
     final[k] = [main] + [RU.get(n, n) for n in sub]
+# ручные правки (приоритетнее автоматики): ключ "релиз" или "релиз:трек" -> ["Main", "поджанр", ...]; запись трека сильнее записи релиза
+import os
+if os.path.exists("genres_override.json"):
+    ov = json.load(open("genres_override.json", encoding="utf-8"))
+    for k in list(final):
+        rid = k.split(":")[0]
+        v = ov.get(k) or ov.get(rid)
+        if v: final[k] = v
 json.dump(final, open("genres.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 print(Counter(g for v in final.values() for g in v).most_common(40))
 print("tracks:", len(final))
