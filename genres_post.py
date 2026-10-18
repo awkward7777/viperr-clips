@@ -17,10 +17,12 @@ MAIN = set(FAM.values())
 raw = json.load(open("genre_raw.json", encoding="utf-8"))
 final = {}
 for k, v in raw.items():
-    fam = Counter(); keep = []
+    fam = Counter(); keep = []; popish = 0.0
     for n, p in v["top"]:
         g, _, st = n.partition("---")
-        if st in DROP: continue
+        if st in DROP:
+            if st == "K-pop": popish += p  # мелодичный поп-звук: модель называет его K-pop
+            continue
         if g in FAM: fam[FAM[g]] += p
         keep.append((st or g, p))
     main = fam.most_common(1)[0][0] if fam else "Rap"
@@ -28,7 +30,9 @@ for k, v in raw.items():
     if not sub:
         c = [n for n, p in keep if p >= 0.12 and n not in MAIN][:1]
         sub = c
-    final[k] = [main] + [RU.get(n, n) for n in sub]
+    mains = [main]
+    if main != "Pop" and fam.get("Pop", 0) + popish >= 0.30: mains.append("Pop")  # дополнительный основной тег
+    final[k] = mains + [RU.get(n, n) for n in sub]
 # ручные правки (приоритетнее автоматики): ключ "релиз" или "релиз:трек" -> ["Main", "поджанр", ...]; запись трека сильнее записи релиза
 import os
 if os.path.exists("genres_override.json"):
