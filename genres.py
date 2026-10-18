@@ -39,22 +39,4 @@ for rid, i, name, au in pick:
         print("FAIL", rid, i, name, e, flush=True)
 json.dump(out, open("genre_raw.json", "w"), ensure_ascii=False, indent=1)
 
-# ---- итог: порог, без ложных меток, русские названия, до 3 на трек ----
-RU = {"Trap": "Трэп", "Cloud Rap": "Клауд-рэп", "Pop Rap": "Поп-рэп", "Hip Hop": "Хип-хоп", "Hardcore Hip-Hop": "Хардкор-хип-хоп",
-      "Gangsta": "Гангста-рэп", "Grime": "Грайм", "Horrorcore": "Хорроркор", "Crunk": "Кранк", "Boom Bap": "Бум-бэп", "Conscious": "Сознательный рэп",
-      "Emo": "Эмо", "Synth-pop": "Синти-поп", "Electro": "Электро", "Synthwave": "Синтвейв", "Ambient": "Эмбиент", "Experimental": "Экспериментальная",
-      "Industrial": "Индастриал", "Dark Ambient": "Дарк-эмбиент", "Punk": "Панк", "Melodic Hardcore": "Мелодик-хардкор", "Pop Punk": "Поп-панк",
-      "Hardcore": "Хардкор", "Dubstep": "Дабстеп", "Pop": "Поп", "Rock": "Рок", "Alternative Rock": "Альтернативный рок", "Indie Pop": "Инди-поп",
-      "Hyperpop": "Хайперпоп", "House": "Хаус", "Techno": "Техно", "Drum n Bass": "Драм-н-бейс", "R&B": "R&B", "Electronic": "Электроника",
-      "Indie Rock": "Инди-рок", "Punk Rock": "Панк-рок", "Dance-pop": "Данс-поп", "Trip Hop": "Трип-хоп", "Lo-Fi": "Лоу-фай", "Vaporwave": "Вейпорвейв"}
-DROP = {"K-pop", "Reggaeton", "J-pop", "Bollywood", "Schlager"}
-final = {}
-for k, v in out.items():
-    keep = [(n.split("---")[-1], p) for n, p in v["top"] if n.split("---")[-1] not in DROP]
-    sel = [n for n, p in keep if p >= 0.25][:3]
-    if not sel and keep and keep[0][1] >= 0.12: sel = [keep[0][0]]
-    if sel: final[k] = [RU.get(n, n) for n in sel]
-json.dump(final, open("genres.json", "w"), ensure_ascii=False, indent=1)
-from collections import Counter
-print(Counter(g for v in final.values() for g in v).most_common(40))
-print("tracks:", len(final), "of", len(out))
+import genres_post  # итог: основные теги Genius + поджанры
