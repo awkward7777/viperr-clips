@@ -3,7 +3,9 @@ import json, os, urllib.request, urllib.parse
 T = os.environ.get("GENIUS_TOKEN")
 print("token:", bool(T))
 def get(u, hdr=None):
-    h = {"Authorization": "Bearer " + T, "User-Agent": "Mozilla/5.0"} if T else {"User-Agent": "Mozilla/5.0"}
+    api = "api.genius.com" in u
+    h = {"Authorization": "Bearer " + T} if (T and api) else {}
+    if not api: h["User-Agent"] = "Mozilla/5.0"
     h.update(hdr or {})
     try:
         with urllib.request.urlopen(urllib.request.Request(u, headers=h), timeout=30) as r: return r.status, r.read().decode("utf-8", "replace")
