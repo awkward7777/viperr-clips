@@ -1,6 +1,6 @@
 """Лёгкие версии аудио (128 и 64 кбит/с) и клипов (720p и 480p) для экономии трафика.
 Результат: релизы audio-lq (аудио) и clips (клипы) + quality.json со списком готовых версий."""
-import json, os, re, subprocess, sys, time, urllib.request
+import json, os, re, subprocess, sys, time, traceback, urllib.parse, urllib.request
 
 BASE = "https://discographyviperr.pages.dev/"
 REPO = "awkward7777/viperr-clips"
@@ -13,7 +13,7 @@ os.makedirs(WORK, exist_ok=True)
 
 
 def get(url):
-    return urllib.request.urlopen(urllib.request.Request(url), timeout=60)
+    return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=60)
 
 
 def download(url, dst):
@@ -26,7 +26,10 @@ def download(url, dst):
 
 
 def sh(*a, check=True):
-    return subprocess.run(a, check=check, capture_output=True, text=True)
+    r = subprocess.run(a, capture_output=True, text=True)
+    if check and r.returncode != 0:
+        raise RuntimeError(f"{a[:3]} -> {r.returncode}: {r.stderr[-500:]}")
+    return r
 
 
 def release_assets(tag):
@@ -48,7 +51,8 @@ def upload(tag, path):
 
 
 def abs_url(u):
-    return u if u.startswith("http") else BASE + u.lstrip("/")
+    u = u if u.startswith("http") else BASE + u.lstrip("/")
+    return urllib.parse.quote(u, safe=":/%?&=+#")
 
 
 def main():
@@ -135,4 +139,11 @@ def main():
     print("index:", len(a), "audio,", len(c), "clips")
 
 
-main()
+try:
+    main()
+    if os.path.exists("quality_error.txt"):
+        os.remove("quality_error.txt")
+except BaseException:
+    open("quality_error.txt", "w").write(traceback.format_exc())
+    print(traceback.format_exc())
+    sys.exit(0)
