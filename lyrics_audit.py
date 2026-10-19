@@ -12,8 +12,8 @@ clean = lambda t: re.sub(r"\s*[(\[][^)\]]*[)\]]", "", t).strip()
 tracks = get(BASE + "tracks.json") or []
 bad, none, ok = [], [], 0
 for r in tracks:
-    for i, t in enumerate(r.get("tr") or r.get("tracks") or []):
-        art = (r.get("ar") or r.get("artist") or "").split(",")[0].split(" & ")[0].strip()
+    for i, t in enumerate(r.get("tr") or []):
+        art = (r.get("a") or "").split(",")[0].split(" & ")[0].strip()
         res = get("https://lrclib.net/api/search?track_name=%s&artist_name=%s" % (urllib.parse.quote(t), urllib.parse.quote(art))) or []
         syn = [x for x in res if x.get("syncedLyrics")]
         good = [x for x in syn if nk(x.get("trackName")) in (nk(t), nk(clean(t)))]
