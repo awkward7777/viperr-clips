@@ -1,0 +1,772 @@
+{
+ "ok": 104,
+ "bad": [
+  {
+   "k": "22:0",
+   "title": "hurt",
+   "artist": "Kai Angel",
+   "found": [
+    "does it hurt? — Kai Angel (id 38721292)",
+    "does it hurt? — Kai Angel (id 38542428)",
+    "does it hurt? — Kai Angel (id 38593772)"
+   ]
+  },
+  {
+   "k": "57:2",
+   "title": "IMYA",
+   "artist": "9mice",
+   "found": [
+    "IMYA (Paused) — 9mice (id 33463591)"
+   ]
+  },
+  {
+   "k": "68:6",
+   "title": "dry lips freestyle",
+   "artist": "9mice",
+   "found": [
+    "dry lips freestyle (Paused) — 9mice (id 33509373)",
+    "dry lips freestyle (Muzpro.net) — 9mice (id 34639781)"
+   ]
+  },
+  {
+   "k": "71:5",
+   "title": "XO4ET",
+   "artist": "9mice",
+   "found": [
+    "XO4ET (Paused) — 9mice (id 25452721)"
+   ]
+  }
+ ],
+ "none": [
+  {
+   "k": "2:0",
+   "title": "*** TRIVIAL",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "3:0",
+   "title": "101 ПРИЧИНА",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "5:0",
+   "title": "HASHIRA",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "6:0",
+   "title": "what's uppppppxddDDD",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "6:1",
+   "title": "~boo~",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "6:2",
+   "title": "rain (hEaVy)",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "6:3",
+   "title": "Trinity",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "6:4",
+   "title": "HASHIRA",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "6:5",
+   "title": "gyutaro theme (UgLy)",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "9:0",
+   "title": "БЕГИ ОТ МЕНЯ",
+   "artist": "ANIKV"
+  },
+  {
+   "k": "10:0",
+   "title": "FAKE LOVE",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "10:1",
+   "title": "ANGRYY",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "13:0",
+   "title": "THRILLEЯ",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "15:2",
+   "title": "i hate fashion shows",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "16:0",
+   "title": "quiet turn up",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "17:0",
+   "title": "MARILYN MANSON",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "17:1",
+   "title": "STUPID",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "17:3",
+   "title": "SS16 CYCLOPS",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "17:4",
+   "title": "HELLRAISER",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "17:5",
+   "title": "MANNEQUIN",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "17:8",
+   "title": "BALLERINA",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "17:9",
+   "title": "MONROE TEARS",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "17:10",
+   "title": "FUNERAL",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "18:1",
+   "title": "im all blessed the fuck up",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "18:4",
+   "title": "mirrors",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "18:9",
+   "title": "fire walk with me",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "18:12",
+   "title": "slave to the rhythm",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "18:13",
+   "title": "drive",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "18:15",
+   "title": "0 tears",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "20:0",
+   "title": "1-800-PARADISE",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "20:5",
+   "title": "ХОЛОД",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "20:6",
+   "title": "MYSPACE",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "20:8",
+   "title": "DANCE LIKE U IN PAIN",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "20:10",
+   "title": "RIOT",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "20:11",
+   "title": "SHOW OFF",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "20:12",
+   "title": "DOLLARS OUT ON TOP ON GOD",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "20:14",
+   "title": "GOD SYSTEM",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "20:15",
+   "title": "BAD BITCHES ONLY",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "21:1",
+   "title": "KYLIE MINOGUE",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "21:3",
+   "title": "BABY",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "21:4",
+   "title": "$$$",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "21:5",
+   "title": "DEAD MEN WALKING",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "24:0",
+   "title": "freddy krueger",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "26:0",
+   "title": "Tainted Love",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "28:0",
+   "title": "Limousine Music",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "30:1",
+   "title": "Mulholland",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "30:3",
+   "title": "pleasure",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "30:5",
+   "title": "Razorblade kiss",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "30:7",
+   "title": "andy warhol",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "30:10",
+   "title": "le royal monceau gatsby séance",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "30:12",
+   "title": "yes i glow in the dark but also i am the dark",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "31:0",
+   "title": "Shh!",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "31:2",
+   "title": "gladiator",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "31:5",
+   "title": "having fun",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "31:7",
+   "title": "Sting",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "31:10",
+   "title": "1971 Rockstar",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "31:12",
+   "title": "Madam 2",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "33:0",
+   "title": "DIANA PRINCESS",
+   "artist": "9mice"
+  },
+  {
+   "k": "34:0",
+   "title": "END OF THE WORLD",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "35:0",
+   "title": "GP$",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "36:0",
+   "title": "hello bandits",
+   "artist": "9mice"
+  },
+  {
+   "k": "37:0",
+   "title": "i need to chill",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "38:0",
+   "title": "kiss me right b4 u go",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "39:0",
+   "title": "KISS",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "40:0",
+   "title": "MARILYN MANSON DEMO",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "41:0",
+   "title": "mercedes benz",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "42:0",
+   "title": "Moon",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "43:0",
+   "title": "pornstar",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "44:0",
+   "title": "say10",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "45:1",
+   "title": "SILVER CP",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "46:0",
+   "title": "SHOW OFF",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "47:0",
+   "title": "SKULL",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "48:0",
+   "title": "slipknot",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "49:0",
+   "title": "smirnoff ice",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "51:0",
+   "title": "Ur The Moon",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "52:0",
+   "title": "ЛЮБОВЬ",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "53:0",
+   "title": "ЗАБУДЕТ",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "54:0",
+   "title": "Насилие",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "55:0",
+   "title": "boost it",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "56:1",
+   "title": "SPRITE",
+   "artist": "9mice"
+  },
+  {
+   "k": "56:2",
+   "title": "NEW-YORK",
+   "artist": "9mice"
+  },
+  {
+   "k": "56:3",
+   "title": "a closed feeling interlude.",
+   "artist": "9mice"
+  },
+  {
+   "k": "56:4",
+   "title": "NEED4SPIT",
+   "artist": "9mice"
+  },
+  {
+   "k": "56:6",
+   "title": "VULCAN",
+   "artist": "9mice"
+  },
+  {
+   "k": "57:0",
+   "title": "ASSAULT",
+   "artist": "9mice"
+  },
+  {
+   "k": "57:1",
+   "title": "BELLA",
+   "artist": "9mice"
+  },
+  {
+   "k": "57:3",
+   "title": "DOROGAYA",
+   "artist": "9mice"
+  },
+  {
+   "k": "57:4",
+   "title": "SSNS",
+   "artist": "9mice"
+  },
+  {
+   "k": "57:5",
+   "title": "Y3BOK",
+   "artist": "9mice"
+  },
+  {
+   "k": "57:6",
+   "title": "KIKO",
+   "artist": "9mice"
+  },
+  {
+   "k": "57:8",
+   "title": "HEROIN",
+   "artist": "9mice"
+  },
+  {
+   "k": "57:9",
+   "title": "ALASKA",
+   "artist": "9mice"
+  },
+  {
+   "k": "57:10",
+   "title": "YMIRAU",
+   "artist": "9mice"
+  },
+  {
+   "k": "58:1",
+   "title": "SNICKERS",
+   "artist": "9mice"
+  },
+  {
+   "k": "58:3",
+   "title": "Netu/Love",
+   "artist": "9mice"
+  },
+  {
+   "k": "59:1",
+   "title": "MMW",
+   "artist": "9mice"
+  },
+  {
+   "k": "60:0",
+   "title": "u+me",
+   "artist": "9mice"
+  },
+  {
+   "k": "61:0",
+   "title": "lalala",
+   "artist": "LILDRUGHILL"
+  },
+  {
+   "k": "62:0",
+   "title": "Пауки (OST Смертельный стрим)",
+   "artist": "9mice"
+  },
+  {
+   "k": "64:0",
+   "title": "Anora",
+   "artist": "9mice"
+  },
+  {
+   "k": "65:0",
+   "title": "Москва - Владивосток",
+   "artist": "9mice"
+  },
+  {
+   "k": "66:0",
+   "title": "Narcotic",
+   "artist": "9mice"
+  },
+  {
+   "k": "68:0",
+   "title": "jenna",
+   "artist": "9mice"
+  },
+  {
+   "k": "68:2",
+   "title": "distance",
+   "artist": "9mice"
+  },
+  {
+   "k": "68:4",
+   "title": "famous",
+   "artist": "9mice"
+  },
+  {
+   "k": "68:5",
+   "title": "humble",
+   "artist": "9mice"
+  },
+  {
+   "k": "68:7",
+   "title": "romance",
+   "artist": "9mice"
+  },
+  {
+   "k": "68:8",
+   "title": "chanel no9",
+   "artist": "9mice"
+  },
+  {
+   "k": "68:9",
+   "title": "Narcotic",
+   "artist": "9mice"
+  },
+  {
+   "k": "68:10",
+   "title": "less than 0",
+   "artist": "9mice"
+  },
+  {
+   "k": "68:11",
+   "title": "sugar",
+   "artist": "9mice"
+  },
+  {
+   "k": "69:0",
+   "title": "UNDERGROUND POP FREESTYLE",
+   "artist": "Kai Angel"
+  },
+  {
+   "k": "71:1",
+   "title": "SV",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:2",
+   "title": "SHAKE",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:3",
+   "title": "STAY WITH ME",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:4",
+   "title": "KINO",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:6",
+   "title": "MNOGO",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:7",
+   "title": "SOOQA",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:8",
+   "title": "ELA-ELA",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:9",
+   "title": "GWYN PLAINE",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:10",
+   "title": "BADMAN",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:11",
+   "title": "ГЕРОИНЯ",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:12",
+   "title": "DEVO4KA",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:13",
+   "title": "RAZRUSHIT",
+   "artist": "9mice"
+  },
+  {
+   "k": "71:14",
+   "title": "4EVER",
+   "artist": "9mice"
+  },
+  {
+   "k": "72:0",
+   "title": "Do Vesni",
+   "artist": "9mice"
+  },
+  {
+   "k": "76:0",
+   "title": "Inertia // I=MR ²",
+   "artist": "Contact Sports"
+  },
+  {
+   "k": "77:0",
+   "title": "indiana",
+   "artist": "9mice"
+  },
+  {
+   "k": "78:0",
+   "title": "SORRY BOUT THAT",
+   "artist": "Nikitsunami"
+  },
+  {
+   "k": "79:0",
+   "title": "imya2",
+   "artist": "9mice"
+  },
+  {
+   "k": "81:0",
+   "title": "Lungs Flowers / Vnutri",
+   "artist": "9mice"
+  },
+  {
+   "k": "84:0",
+   "title": "SLST",
+   "artist": "9mice"
+  },
+  {
+   "k": "86:0",
+   "title": "RICH $EX",
+   "artist": "9mice"
+  },
+  {
+   "k": "86:1",
+   "title": "Something In A Way",
+   "artist": "9mice"
+  },
+  {
+   "k": "86:2",
+   "title": "I FW it",
+   "artist": "9mice"
+  },
+  {
+   "k": "86:3",
+   "title": "B DPRESSED",
+   "artist": "9mice"
+  },
+  {
+   "k": "86:4",
+   "title": "Рояль",
+   "artist": "9mice"
+  },
+  {
+   "k": "86:5",
+   "title": "Type 0 Bih",
+   "artist": "9mice"
+  },
+  {
+   "k": "86:7",
+   "title": "Close 2 u",
+   "artist": "9mice"
+  },
+  {
+   "k": "87:3",
+   "title": "Blum (Big City Life)",
+   "artist": "9mice"
+  },
+  {
+   "k": "87:7",
+   "title": "Frank Ocean",
+   "artist": "9mice"
+  },
+  {
+   "k": "87:9",
+   "title": "Da Vinci",
+   "artist": "9mice"
+  },
+  {
+   "k": "87:13",
+   "title": "I Love God",
+   "artist": "9mice"
+  },
+  {
+   "k": "87:16",
+   "title": "I Wanna Be Your Dog",
+   "artist": "9mice"
+  },
+  {
+   "k": "87:19",
+   "title": "Murder On The Dancefloor",
+   "artist": "9mice"
+  },
+  {
+   "k": "88:0",
+   "title": "Honey Bunny (Numb)",
+   "artist": "9mice"
+  }
+ ]
+}
