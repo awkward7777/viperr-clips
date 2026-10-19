@@ -1,0 +1,19 @@
+name: Popular tracks
+on:
+  schedule:
+    - cron: "20 3 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 popular.py
+        env: { GENIUS_TOKEN: "${{ secrets.GENIUS_TOKEN }}" }
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add popular.json
+          git diff --cached --quiet || (git commit -m "Update popular.json" && git pull --rebase -q && git push -q)
