@@ -1,0 +1,15 @@
+name: Lyrics fill
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  fill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 lyrics_fill.py
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add lyrics_fill.json lyrics_map.json
+          git diff --cached --quiet || (git commit -m "Lyrics fill" && git pull --rebase -q && git push -q)
