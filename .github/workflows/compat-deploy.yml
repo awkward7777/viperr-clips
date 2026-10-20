@@ -48,5 +48,6 @@ jobs:
         run: |
           echo "{\"url\":\"https://viperr-compat.$SUB.workers.dev\"}" > compat.json
           git config user.name "github-actions"; git config user.email "actions@github.com"
+          git checkout -- server/wrangler.toml
           git add compat.json
           git diff --cached --quiet || (git commit -m "compat url" && git pull --rebase -q && git push -q)
