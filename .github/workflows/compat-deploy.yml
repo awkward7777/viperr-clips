@@ -51,3 +51,14 @@ jobs:
           git checkout -- server/wrangler.toml
           git add compat.json
           git diff --cached --quiet || (git commit -m "compat url" && git pull --rebase -q && git push -q)
+      - name: Smoke test
+        run: |
+          U="https://viperr-compat.$SUB.workers.dev"
+          sleep 8
+          R=$(curl -s -X POST $U/c -H 'content-type: application/json' -d '{"t":["1:0","1:1","2:0","3:1","4:2"],"n":"test"}')
+          echo "post: $R"
+          C=$(echo "$R" | jq -r .code)
+          G=$(curl -s $U/c/$C)
+          echo "get: $G"
+          echo "$G" | jq -e '.t|length==5' >/dev/null
+          [ "$(curl -s -o /dev/null -w '%{http_code}' $U/c/ZZZZ)" = 404 ]
