@@ -35,7 +35,8 @@ def tempo(path):
     y, sr = librosa.load(wav, sr=22050)
     if len(y) < sr * 15: return None
     env = librosa.onset.onset_strength(y=y, sr=sr)
-    t = librosa.feature.rhythm.tempo(onset_envelope=env, sr=sr, start_bpm=85, max_tempo=200, aggregate=np.median)
+    fn = getattr(getattr(librosa.feature, "rhythm", None), "tempo", None) or librosa.beat.tempo
+    t = fn(onset_envelope=env, sr=sr, start_bpm=85, max_tempo=200, aggregate=np.median)
     return float(np.atleast_1d(t)[0])
 
 
