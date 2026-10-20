@@ -44,7 +44,7 @@ def main():
     try: tracks += json.loads(get(RAW + "new.json").read().decode())
     except Exception as e: print("new.json:", e)
     out = json.load(open("bpm.json")) if os.path.exists("bpm.json") else {}
-    n = 0
+    n = 0; errs = []
     for r in tracks:
         for i, u in enumerate(r.get("au") or []):
             k = f"{r['id']}:{i}"
@@ -58,7 +58,10 @@ def main():
                 if t: out[k] = round(t, 1); n += 1
                 else: out[k] = 0
             except Exception as e:
-                print("fail", k, e)
+                import traceback
+                errs.append(f"{k}: {traceback.format_exc()[-600:]}")
+                if len(errs) <= 8: open("bpm_error.txt", "w").write("\n\n".join(errs))
+                if len(errs) > 40 and n == 0: print("too many errors"); return
             if n and n % 25 == 0: json.dump(out, open("bpm.json", "w"), separators=(",", ":"))
     json.dump(out, open("bpm.json", "w"), separators=(",", ":"))
     print("done", len(out))
