@@ -83,7 +83,7 @@ jobs:
         run: |
           git config user.name "viperr-sync"
           git config user.email "sync@users.noreply.github.com"
-          git add -A manual 2>/dev/null; git add new.json seen.json artists.json artists.log bios.json bios_i18n.json sync.log 2>/dev/null || git add new.json seen.json
+          git add -A manual 2>/dev/null || true; git add new.json seen.json artists.json artists.log bios.json bios_i18n.json sync.log 2>/dev/null || git add new.json seen.json
           if ! git diff --cached --quiet; then
             git commit -q -m "Catalog update" || echo "::error::commit: $(git status --short | head -5 | tr '\n' ' ')"
             OUT=$(git pull --rebase --autostash 2>&1) || { echo "::error::pull: $(echo "$OUT" | tail -4 | tr '\n' ' ')"; git rebase --abort 2>/dev/null; exit 1; }
