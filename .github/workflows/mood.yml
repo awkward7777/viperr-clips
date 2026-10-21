@@ -1,0 +1,39 @@
+name: Mood
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_min:
+        description: "Time budget in minutes"
+        default: "300"
+
+permissions:
+  contents: write
+
+concurrency: mood
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Mood covers
+        run: mkdir -p moodcovers && for n in dreaming snuggling bedtime game-night morning-focus inspiration feeling-happy boost-my-confidence freshening-up; do curl -sfL https://discographyviperr.pages.dev/covers/pl-$n.jpg -o moodcovers/$n.jpg || true; done
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: pip install -q librosa numpy
+      - name: Analyse
+        env:
+          MAX_MIN: ${{ github.event.inputs.max_min || '300' }}
+        run: python3 mood.py
+      - name: Commit
+        if: always()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add mood.json moodcovers
+          [ -f mood_error.txt ] && git add mood_error.txt || true
+          git diff --cached --quiet || (git commit -m "Update mood.json" && git pull --rebase -q && git push -q)
