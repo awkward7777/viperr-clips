@@ -1,0 +1,833 @@
+{
+ "totals": {
+  "synced": 148,
+  "plain": 32,
+  "none": 74
+ },
+ "releases": [
+  {
+   "release": "kAiCoRe",
+   "tracks": 6,
+   "missing": [
+    {
+     "n": 1,
+     "title": "what's uppppppxddDDD",
+     "state": "plain"
+    },
+    {
+     "n": 2,
+     "title": "~boo~",
+     "state": "none"
+    },
+    {
+     "n": 3,
+     "title": "rain (hEaVy)",
+     "state": "none"
+    },
+    {
+     "n": 4,
+     "title": "Trinity",
+     "state": "plain"
+    },
+    {
+     "n": 6,
+     "title": "gyutaro theme (UgLy)",
+     "state": "plain"
+    }
+   ]
+  },
+  {
+   "release": "Madonna",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Madonna",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "HEAVY METAL",
+   "tracks": 6,
+   "missing": [
+    {
+     "n": 6,
+     "title": "OD1NOKO FREESTYLE",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "jennifer's body",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "jennifer's body",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "ANGEL MAY CRY 2",
+   "tracks": 7,
+   "missing": [
+    {
+     "n": 1,
+     "title": "john galliano",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "MARILYN MANSON",
+   "tracks": 11,
+   "missing": [
+    {
+     "n": 1,
+     "title": "MARILYN MANSON",
+     "state": "none"
+    },
+    {
+     "n": 4,
+     "title": "SS16 CYCLOPS",
+     "state": "plain"
+    },
+    {
+     "n": 5,
+     "title": "HELLRAISER",
+     "state": "none"
+    },
+    {
+     "n": 6,
+     "title": "MANNEQUIN",
+     "state": "plain"
+    },
+    {
+     "n": 8,
+     "title": "NO PAIN",
+     "state": "none"
+    },
+    {
+     "n": 9,
+     "title": "BALLERINA",
+     "state": "plain"
+    },
+    {
+     "n": 10,
+     "title": "MONROE TEARS",
+     "state": "plain"
+    },
+    {
+     "n": 11,
+     "title": "FUNERAL",
+     "state": "plain"
+    }
+   ]
+  },
+  {
+   "release": "damage",
+   "tracks": 17,
+   "missing": [
+    {
+     "n": 2,
+     "title": "im all blessed the fuck up",
+     "state": "plain"
+    },
+    {
+     "n": 10,
+     "title": "fire walk with me",
+     "state": "none"
+    },
+    {
+     "n": 13,
+     "title": "slave to the rhythm",
+     "state": "none"
+    },
+    {
+     "n": 14,
+     "title": "drive",
+     "state": "plain"
+    },
+    {
+     "n": 16,
+     "title": "0 tears",
+     "state": "plain"
+    }
+   ]
+  },
+  {
+   "release": "GOD SYSTEM",
+   "tracks": 17,
+   "missing": [
+    {
+     "n": 2,
+     "title": "SLAYERR",
+     "state": "none"
+    },
+    {
+     "n": 7,
+     "title": "MYSPACE",
+     "state": "plain"
+    },
+    {
+     "n": 11,
+     "title": "RIOT",
+     "state": "plain"
+    },
+    {
+     "n": 13,
+     "title": "DOLLARS OUT ON TOP ON GOD",
+     "state": "plain"
+    },
+    {
+     "n": 15,
+     "title": "GOD SYSTEM",
+     "state": "none"
+    },
+    {
+     "n": 16,
+     "title": "BAD BITCHES ONLY",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "ANGEL MAY CRY",
+   "tracks": 7,
+   "missing": [
+    {
+     "n": 2,
+     "title": "KYLIE MINOGUE",
+     "state": "plain"
+    },
+    {
+     "n": 4,
+     "title": "BABY",
+     "state": "plain"
+    },
+    {
+     "n": 5,
+     "title": "$$$",
+     "state": "none"
+    },
+    {
+     "n": 6,
+     "title": "DEAD MEN WALKING",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "hurt",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "hurt",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "freddy krueger",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "freddy krueger",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "DIANA PRINCESS",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "DIANA PRINCESS",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "END OF THE WORLD",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "END OF THE WORLD",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "GP$",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "GP$",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "kiss me right b4 u go",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "kiss me right b4 u go",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "KISS",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "KISS",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "MARILYN MANSON DEMO",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "MARILYN MANSON DEMO",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "Moon",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Moon",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "pornstar",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "pornstar",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "say10",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "say10",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "SKULL",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "SKULL",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "slipknot",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "slipknot",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "smirnoff ice",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "smirnoff ice",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "Ur The Moon",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Ur The Moon",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "ЛЮБОВЬ",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "ЛЮБОВЬ",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "ЗАБУДЕТ",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "ЗАБУДЕТ",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "Насилие",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Насилие",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "boost it",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "boost it",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "SOLOIST",
+   "tracks": 7,
+   "missing": [
+    {
+     "n": 1,
+     "title": "SOLOIST",
+     "state": "none"
+    },
+    {
+     "n": 4,
+     "title": "a closed feeling interlude.",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "ASPHALT",
+   "tracks": 11,
+   "missing": [
+    {
+     "n": 1,
+     "title": "ASSAULT",
+     "state": "plain"
+    },
+    {
+     "n": 2,
+     "title": "BELLA",
+     "state": "plain"
+    },
+    {
+     "n": 3,
+     "title": "IMYA",
+     "state": "plain"
+    },
+    {
+     "n": 4,
+     "title": "DOROGAYA",
+     "state": "plain"
+    },
+    {
+     "n": 5,
+     "title": "SSNS",
+     "state": "none"
+    },
+    {
+     "n": 6,
+     "title": "Y3BOK",
+     "state": "plain"
+    },
+    {
+     "n": 7,
+     "title": "KIKO",
+     "state": "none"
+    },
+    {
+     "n": 9,
+     "title": "HEROIN",
+     "state": "none"
+    },
+    {
+     "n": 11,
+     "title": "YMIRAU",
+     "state": "plain"
+    }
+   ]
+  },
+  {
+   "release": "POEMI KOSO TAPE",
+   "tracks": 4,
+   "missing": [
+    {
+     "n": 2,
+     "title": "SNICKERS",
+     "state": "none"
+    },
+    {
+     "n": 3,
+     "title": "time greater than Bitch.",
+     "state": "none"
+    },
+    {
+     "n": 4,
+     "title": "Netu/Love",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "CHAINSAW",
+   "tracks": 2,
+   "missing": [
+    {
+     "n": 1,
+     "title": "CHAINSAW",
+     "state": "none"
+    },
+    {
+     "n": 2,
+     "title": "MMW",
+     "state": "plain"
+    }
+   ]
+  },
+  {
+   "release": "u+me/stranger",
+   "tracks": 2,
+   "missing": [
+    {
+     "n": 1,
+     "title": "u+me",
+     "state": "plain"
+    },
+    {
+     "n": 2,
+     "title": "stranger",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "Пауки (OST Смертельный стрим)",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Пауки (OST Смертельный стрим)",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "Москва - Владивосток",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Москва - Владивосток",
+     "state": "plain"
+    }
+   ]
+  },
+  {
+   "release": "Narcotic",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Narcotic",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "9mm",
+   "tracks": 14,
+   "missing": [
+    {
+     "n": 3,
+     "title": "distance",
+     "state": "plain"
+    },
+    {
+     "n": 10,
+     "title": "Narcotic",
+     "state": "none"
+    },
+    {
+     "n": 13,
+     "title": "acoustic",
+     "state": "none"
+    },
+    {
+     "n": 14,
+     "title": "weightless / outro",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "UNDERGROUND POP FREESTYLE",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "UNDERGROUND POP FREESTYLE",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "ORPHEUS",
+   "tracks": 15,
+   "missing": [
+    {
+     "n": 1,
+     "title": "FACE",
+     "state": "none"
+    },
+    {
+     "n": 2,
+     "title": "SV",
+     "state": "none"
+    },
+    {
+     "n": 3,
+     "title": "SHAKE",
+     "state": "plain"
+    },
+    {
+     "n": 5,
+     "title": "KINO",
+     "state": "none"
+    },
+    {
+     "n": 6,
+     "title": "XO4ET",
+     "state": "plain"
+    },
+    {
+     "n": 7,
+     "title": "MNOGO",
+     "state": "plain"
+    },
+    {
+     "n": 9,
+     "title": "ELA-ELA",
+     "state": "none"
+    },
+    {
+     "n": 10,
+     "title": "GWYN PLAINE",
+     "state": "plain"
+    },
+    {
+     "n": 11,
+     "title": "BADMAN",
+     "state": "none"
+    },
+    {
+     "n": 14,
+     "title": "RAZRUSHIT",
+     "state": "plain"
+    },
+    {
+     "n": 15,
+     "title": "4EVER",
+     "state": "plain"
+    }
+   ]
+  },
+  {
+   "release": "Inertia // I=MR ²",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Inertia // I=MR ²",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "indiana",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "indiana",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "imya2",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "imya2",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "Lonely",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Lonely",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "Lungs Flowers / Vnutri",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Lungs Flowers / Vnutri",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "Nina Kraviz",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "Nina Kraviz",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "RANGE",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "RANGE",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "SLST",
+   "tracks": 1,
+   "missing": [
+    {
+     "n": 1,
+     "title": "SLST",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "bluöra",
+   "tracks": 8,
+   "missing": [
+    {
+     "n": 2,
+     "title": "Something In A Way",
+     "state": "none"
+    },
+    {
+     "n": 3,
+     "title": "I FW it",
+     "state": "none"
+    },
+    {
+     "n": 4,
+     "title": "B DPRESSED",
+     "state": "none"
+    },
+    {
+     "n": 5,
+     "title": "Рояль",
+     "state": "none"
+    },
+    {
+     "n": 6,
+     "title": "Type 0 Bih",
+     "state": "none"
+    },
+    {
+     "n": 8,
+     "title": "Close 2 u",
+     "state": "none"
+    }
+   ]
+  },
+  {
+   "release": "Heavy Metal 2",
+   "tracks": 21,
+   "missing": [
+    {
+     "n": 6,
+     "title": "Paparazzi",
+     "state": "none"
+    },
+    {
+     "n": 7,
+     "title": "So Good",
+     "state": "none"
+    },
+    {
+     "n": 12,
+     "title": "Ice + Alabaster",
+     "state": "none"
+    },
+    {
+     "n": 20,
+     "title": "Murder On The Dancefloor",
+     "state": "none"
+    }
+   ]
+  }
+ ]
+}
