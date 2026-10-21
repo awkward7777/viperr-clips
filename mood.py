@@ -37,7 +37,7 @@ def feats(path):
     ch = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
     best_maj = max(np.corrcoef(ch, np.roll(MAJ, k))[0, 1] for k in range(12))
     best_min = max(np.corrcoef(ch, np.roll(MIN, k))[0, 1] for k in range(12))
-    return [round(rms, 4), round(cen, 1), round(float(best_min - best_maj), 3), round(t, 1), round(float(np.mean(env)), 3)]
+    return [round(rms, 4), round(cen, 1), round(float(np.nan_to_num(best_min - best_maj)), 3), round(t, 1), round(float(np.mean(env)), 3)]
 
 def main():
     tracks = json.loads(get(BASE + "tracks.json").read().decode())
