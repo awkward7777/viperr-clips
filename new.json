@@ -357,5 +357,32 @@
    ]
   ],
   "ov": true
+ },
+ {
+  "id": "am6825866216",
+  "t": "Smokey Eyes",
+  "type": "Сингл",
+  "y": 2026,
+  "dt": "2026-10-22",
+  "a": "9mice",
+  "tr": [
+   "Smokey Eyes"
+  ],
+  "au": [
+   null
+  ],
+  "lf": [
+   null
+  ],
+  "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/cb/b2/68/cbb26824-8c9b-e114-e33e-f41178970084/612891312461.jpg/3000x3000bb.jpg",
+  "h": 176,
+  "cr": [
+   {
+    "d": 165,
+    "a": [
+     "9mice"
+    ]
+   }
+  ]
  }
 ]
