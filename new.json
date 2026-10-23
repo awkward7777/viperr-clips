@@ -369,10 +369,13 @@
    "Smokey Eyes"
   ],
   "au": [
-   null
+   "https://github.com/awkward7777/viperr-clips/releases/download/audio/am6825866216-1.m4a"
   ],
   "lf": [
-   null
+   [
+    -5.6,
+    5.4
+   ]
   ],
   "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/cb/b2/68/cbb26824-8c9b-e114-e33e-f41178970084/612891312461.jpg/3000x3000bb.jpg",
   "h": 176,
