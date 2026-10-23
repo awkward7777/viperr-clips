@@ -21,8 +21,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Mood covers
-        run: mkdir -p moodcovers && for n in dreaming snuggling bedtime game-night morning-focus inspiration feeling-happy boost-my-confidence freshening-up; do curl -sfL https://discographyviperr.pages.dev/covers/pl-$n.jpg -o moodcovers/$n.jpg || true; done
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - run: pip install -q librosa numpy
       - name: Analyse
