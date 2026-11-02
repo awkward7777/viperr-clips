@@ -31,6 +31,31 @@ export default {
       }
       return J({ error: "busy" }, 503);
     }
+    // Перенос данных между устройствами: одноразовый код на 10 минут, запись удаляется после первого чтения.
+    if (req.method === "POST" && u.pathname === "/t") {
+      if (await limited(env, ip, "tpost", 10)) return J({ error: "rate" }, 429);
+      const raw = await req.text();
+      if (raw.length > 400000) return J({ error: "big" }, 413);
+      let b; try { b = JSON.parse(raw); } catch { return J({ error: "json" }, 400); }
+      if (typeof b.d !== "string" || !b.d.includes("viperr-backup")) return J({ error: "bad" }, 400);
+      for (let i = 0; i < 6; i++) {
+        let c = ""; const r = crypto.getRandomValues(new Uint8Array(6)); for (const x of r) c += ALPHA[x % ALPHA.length];
+        if (!(await env.KV.get("t:" + c))) {
+          await env.KV.put("t:" + c, b.d, { expirationTtl: 600 });
+          return J({ code: c, ttl: 600 });
+        }
+      }
+      return J({ error: "busy" }, 503);
+    }
+    const tm = u.pathname.match(/^\/t\/([A-Z0-9]{6})$/i);
+    if (req.method === "GET" && tm) {
+      if (await limited(env, ip, "tget", 20)) return J({ error: "rate" }, 429);
+      const k = "t:" + tm[1].toUpperCase();
+      const v = await env.KV.get(k);
+      if (!v) return J({ error: "none" }, 404);
+      await env.KV.delete(k);
+      return J({ d: v });
+    }
     const m = u.pathname.match(/^\/c\/(?:VPR-)?([A-Z0-9]{4})$/i);
     if (req.method === "GET" && m) {
       if (await limited(env, ip, "get", 60)) return J({ error: "rate" }, 429);
