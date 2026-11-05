@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 popular.py
-        env: { GENIUS_TOKEN: "${{ secrets.GENIUS_TOKEN }}" }
+        env: { GENIUS_TOKEN: "${{ secrets.GENIUS_TOKEN }}", SPOTIFY_ID: "${{ secrets.SPOTIFY_ID }}", SPOTIFY_SECRET: "${{ secrets.SPOTIFY_SECRET }}" }
       - run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
