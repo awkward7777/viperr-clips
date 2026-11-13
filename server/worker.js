@@ -1,4 +1,6 @@
 // Viperr · Совместимость: код на 24 часа хранит список лучших треков, больше ничего.
+// Сообщество (аккаунты, предложения к историям, Telegram-проверка) живёт в community.js и включается, когда есть база D1.
+import { community } from "./community.js";
 const TTL = 86400, ALPHA = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
@@ -12,7 +14,9 @@ async function limited(env, ip, kind, max) {
 const mkCode = () => { let s = ""; const b = crypto.getRandomValues(new Uint8Array(4)); for (const x of b) s += ALPHA[x % ALPHA.length]; return s; };
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
+    const hub = await community(req, env, ctx);
+    if (hub) return hub;
     const u = new URL(req.url), ip = req.headers.get("cf-connecting-ip") || "0";
     if (req.method === "POST" && u.pathname === "/c") {
       if (await limited(env, ip, "post", 20)) return J({ error: "rate" }, 429);
