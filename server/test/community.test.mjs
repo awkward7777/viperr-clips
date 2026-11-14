@@ -232,3 +232,17 @@ test("worker.js: старые маршруты совместимости раб
   const off = await worker.fetch(new Request("https://w.test/stories/overlay", { headers: h }), { KV: env.KV }, ctx);
   assert.equal(off.status, 503);
 });
+
+test("просроченные счётчики с IP и сессии вычищаются", async () => {
+  const w = world();
+  await w.reg("Fan_One");
+  const db = w.env.DB;
+  await db.prepare("INSERT INTO throttle(k,n,until) VALUES('old:1.2.3.4',3,1)").run();
+  await db.prepare("INSERT INTO sessions(th,user_id,created,expires) VALUES('dead',1,1,2)").run();
+  const rnd = Math.random;
+  Math.random = () => 0;
+  try { await w.call("POST", "/a/login", { nick: "nobody", pw: dk("x", "nobody") }, undefined, "7.7.7.7"); } finally { Math.random = rnd; }
+  assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM throttle WHERE k='old:1.2.3.4'").first()).n, 0);
+  assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE th='dead'").first()).n, 0);
+  assert.ok((await db.prepare("SELECT COUNT(*) AS n FROM sessions").first()).n >= 1);
+});

@@ -57,12 +57,21 @@ function recoveryCode() {
 }
 const normCode = (c) => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
+/** Изредка убирает просроченные счётчики (в их ключах есть IP-адреса) и закончившиеся сессии, чтобы ничего не копилось. */
+async function sweep(env, t) {
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM throttle WHERE until <= ?").bind(t),
+    env.DB.prepare("DELETE FROM sessions WHERE expires <= ?").bind(t)
+  ]);
+}
+
 /** Счётчик с окном: true, если лимит уже исчерпан (текущее обращение тоже считается). */
 async function hit(env, key, max, ttl) {
   const t = now();
   const r = await env.DB.prepare("SELECT n, until FROM throttle WHERE k=?").bind(key).first();
   if (!r || r.until <= t) {
     await env.DB.prepare("INSERT OR REPLACE INTO throttle(k,n,until) VALUES(?,?,?)").bind(key, 1, t + ttl).run();
+    if (Math.random() < 0.04) await sweep(env, t);
     return false;
   }
   if (r.n >= max) return true;
