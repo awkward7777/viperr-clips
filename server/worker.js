@@ -22,7 +22,10 @@ export default {
       if (await limited(env, ip, "post", 20)) return J({ error: "rate" }, 429);
       const len = parseInt(req.headers.get("content-length") || "0", 10);
       if (len > 8192) return J({ error: "big" }, 413);
-      let b; try { b = await req.json(); } catch { return J({ error: "json" }, 400); }
+      const raw = await req.text();
+      if (raw.length > 8192) return J({ error: "big" }, 413); // Content-Length может не прийти (chunked), поэтому считаем сам текст
+      let b; try { b = JSON.parse(raw); } catch { return J({ error: "json" }, 400); }
+      if (!b || typeof b !== "object") return J({ error: "json" }, 400);
       const t = Array.isArray(b.t) ? b.t.filter(x => typeof x === "string" && /^[\w.-]{1,40}:\d{1,3}$/.test(x)).slice(0, 200) : [];
       if (t.length < 5) return J({ error: "few" }, 400);
       const n = typeof b.n === "string" ? b.n.slice(0, 24) : "";
@@ -38,10 +41,11 @@ export default {
     // Перенос данных между устройствами: одноразовый код на 10 минут, запись удаляется после первого чтения.
     if (req.method === "POST" && u.pathname === "/t") {
       if (await limited(env, ip, "tpost", 10)) return J({ error: "rate" }, 429);
+      if (parseInt(req.headers.get("content-length") || "0", 10) > 400000) return J({ error: "big" }, 413);
       const raw = await req.text();
       if (raw.length > 400000) return J({ error: "big" }, 413);
       let b; try { b = JSON.parse(raw); } catch { return J({ error: "json" }, 400); }
-      if (typeof b.d !== "string" || !b.d.includes("viperr-backup")) return J({ error: "bad" }, 400);
+      if (!b || typeof b !== "object" || typeof b.d !== "string" || !b.d.includes("viperr-backup")) return J({ error: "bad" }, 400);
       for (let i = 0; i < 6; i++) {
         let c = ""; const r = crypto.getRandomValues(new Uint8Array(6)); for (const x of r) c += ALPHA[x % ALPHA.length];
         if (!(await env.KV.get("t:" + c))) {

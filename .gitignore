@@ -1,2 +1,36 @@
+# Local secrets and cookies: never commit these.
+# (Workflows write cookies.txt at run time from a GitHub secret; it must never reach git.)
 cookies.txt
+*.cookies
+.env
+.env.*
+!.env.example
+.dev.vars
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Cloudflare Worker tooling (server/)
+node_modules/
+.wrangler/
+
+# Local build output and scratch files
 out/
+*.apk
+
+# Python, OS and editor files
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Note: *.log, probe.txt and the *_probe.* files are NOT ignored on purpose.
+# Some workflows commit them so their results can be read without access to the runner.

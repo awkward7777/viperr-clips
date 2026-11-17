@@ -233,6 +233,25 @@ test("worker.js: старые маршруты совместимости раб
   assert.equal(off.status, 503);
 });
 
+test("worker.js: тело без Content-Length считается по тексту, а JSON не объект даёт 400, а не 500", async () => {
+  const { default: worker } = await import("../worker.js");
+  const { makeKV } = await import("./shim.mjs");
+  const env = { KV: makeKV(), DB: makeDB(SCHEMA) };
+  const ctx = { waitUntil() {} };
+  const h = { "content-type": "application/json", "cf-connecting-ip": "3.3.3.3" };
+  const send = (path, body) => worker.fetch(new Request("https://w.test" + path, { method: "POST", headers: h, body }), env, ctx);
+  assert.equal((await send("/c", "x".repeat(9000))).status, 413);
+  assert.equal((await send("/t", "x".repeat(400001))).status, 413);
+  for (const path of ["/c", "/t"]) {
+    for (const body of ["null", "5", '"s"', "true", "[]", "{"]) {
+      assert.equal((await send(path, body)).status, 400, path + " " + body);
+    }
+  }
+  // обычный запрос по-прежнему проходит
+  const ok = await send("/c", JSON.stringify({ t: ["1:0", "1:1", "2:0", "3:1", "4:2"], n: "ok" }));
+  assert.equal(ok.status, 200);
+});
+
 test("просроченные счётчики с IP и сессии вычищаются", async () => {
   const w = world();
   await w.reg("Fan_One");
