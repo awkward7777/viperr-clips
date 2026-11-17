@@ -101,7 +101,7 @@ jobs:
           R=$(curl -s "$API/setWebhook" --data-urlencode "url=$U/tg" -d "secret_token=$SEC" -d 'allowed_updates=["message","callback_query"]' -d max_connections=4)
           echo "webhook: $(echo "$R" | jq -c '{ok,description,error_code}')"
           echo "$R" | jq -e '.ok==true' >/dev/null || { echo "::warning::Telegram не принял webhook. Проверьте токен бота."; exit 0; }
-          curl -s "$API/setMyCommands" -H 'content-type: application/json' -d '{"commands":[{"command":"pending","description":"Suggestions waiting for review"},{"command":"stats","description":"Counters"},{"command":"help","description":"All commands"}]}' >/dev/null
+          curl -s "$API/setMyCommands" -H 'content-type: application/json' -d '{"commands":[{"command":"pending","description":"Suggestions waiting for review"},{"command":"approved","description":"Published notes (delete from here)"},{"command":"stats","description":"Counters"},{"command":"help","description":"All commands"}]}' >/dev/null
           curl -s "$API/getWebhookInfo" | jq -c '.result | {url,pending_update_count,last_error_message}'
       - name: Publish address
         run: |

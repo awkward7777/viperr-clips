@@ -318,14 +318,25 @@ function card(s) {
   if (s.src) t += `\n\n🔗 ${esc(s.src)}`;
   if (s.status === "approved") t += "\n\n✅ <b>Approved</b>";
   else if (s.status === "rejected") t += "\n\n❌ <b>Rejected</b>" + (s.note ? ": " + esc(s.note) : "");
+  else if (s.status === "deleted") t += "\n\n🗑 <b>Deleted</b> — it is gone from the app";
   else t += "\n\n<i>Reply with new text to edit and approve, or “/no reason” to reject with a note.</i>";
   return t;
 }
-const keyboard = (s) => ({
-  inline_keyboard: [
-    [{ text: "✅ Approve", callback_data: "a:" + s.id }, { text: "❌ Reject", callback_data: "r:" + s.id }],
-    ...(s.user_id ? [[{ text: "🚫 Ban author", callback_data: "b:" + s.user_id }]] : [])
-  ]
+// У ждущей карточки: Approve / Reject / Ban. У одобренной одна кнопка: Delete (убрать заметку из приложения).
+const keyboard = (s) => s.status === "approved"
+  ? { inline_keyboard: [[{ text: "🗑 Delete", callback_data: "d:" + s.id }]] }
+  : {
+    inline_keyboard: [
+      [{ text: "✅ Approve", callback_data: "a:" + s.id }, { text: "❌ Reject", callback_data: "r:" + s.id }],
+      ...(s.user_id ? [[{ text: "🚫 Ban author", callback_data: "b:" + s.user_id }]] : [])
+    ]
+  };
+/** Подтверждение удаления: случайное нажатие на Delete ничего не стирает. */
+const sure = (id) => ({ inline_keyboard: [[{ text: "🗑 Yes, delete", callback_data: "y:" + id }, { text: "↩️ Cancel", callback_data: "n:" + id }]] });
+/** Карточка после решения: текст по статусу, а кнопки только у одобренной (Delete), у остальных их нет. */
+const cardEdit = (chat_id, message_id, s) => ({
+  chat_id, message_id, text: card(s), parse_mode: "HTML", disable_web_page_preview: true,
+  ...(s.status === "approved" ? { reply_markup: keyboard(s) } : {})
 });
 
 async function notify(env, s) {
@@ -344,6 +355,18 @@ async function decide(env, id, status, extra = {}) {
   return { s: { ...s, status, final_text: fin, note } };
 }
 
+/** Убирает одобренную заметку совсем: строка удаляется, лента заметок пересобирается (номер версии растёт),
+ *  и приложение при следующем обновлении больше её не покажет. Номера у предложений не повторяются (AUTOINCREMENT),
+ *  поэтому старая кнопка не заденет чужую запись. Ждущие и отклонённые не трогаем. */
+async function removeApproved(env, id) {
+  const s = await env.DB.prepare("SELECT * FROM suggestions WHERE id=?").bind(id).first();
+  if (!s) return { gone: true };
+  if (s.status !== "approved") return { s, unpublished: true };
+  await env.DB.prepare("DELETE FROM suggestions WHERE id=? AND status='approved'").bind(id).run();
+  await rebuildOverlay(env);
+  return { s: { ...s, status: "deleted" } };
+}
+
 async function banUser(env, uid, on) {
   await env.DB.prepare("UPDATE users SET banned=? WHERE id=?").bind(on ? 1 : 0, uid).run();
   if (on) {
@@ -359,7 +382,8 @@ async function handleCallback(env, cq) {
   const [op, raw] = String(cq.data || "").split(":");
   const n = parseInt(raw, 10);
   const msg = cq.message;
-  const refresh = (s) => msg && tg(env, "editMessageText", { chat_id: msg.chat.id, message_id: msg.message_id, text: card(s), parse_mode: "HTML", disable_web_page_preview: true });
+  const refresh = (s) => msg && tg(env, "editMessageText", cardEdit(msg.chat.id, msg.message_id, s));
+  const markup = (mk) => msg && tg(env, "editMessageReplyMarkup", { chat_id: msg.chat.id, message_id: msg.message_id, reply_markup: mk || { inline_keyboard: [] } });
   if (op === "a" || op === "r") {
     const r = await decide(env, n, op === "a" ? "approved" : "rejected");
     if (!r) return answer("Not found");
@@ -369,6 +393,21 @@ async function handleCallback(env, cq) {
   if (op === "b") {
     await banUser(env, n, true);
     return answer("Author banned");
+  }
+  // Убрать одобренную заметку: «Delete» просит подтвердить, «Yes, delete» удаляет, «Cancel» возвращает кнопку Delete.
+  if (op === "y") {
+    const r = await removeApproved(env, n);
+    if (r.gone) { await markup(); return answer("Already deleted"); }
+    if (r.unpublished) return answer("Not published, nothing to delete");
+    await refresh(r.s);
+    return answer("Deleted");
+  }
+  if (op === "d" || op === "n") {
+    const s = await env.DB.prepare("SELECT * FROM suggestions WHERE id=?").bind(n).first();
+    if (!s) { await markup(); return answer("Already deleted"); }
+    if (s.status !== "approved") return answer("Not published, nothing to delete");
+    await markup(op === "d" ? sure(n) : keyboard(s));
+    return answer(op === "d" ? "Delete it from the app?" : "Cancelled");
   }
   return answer("?");
 }
@@ -392,7 +431,7 @@ async function handleMessage(env, m) {
       : await decide(env, sid, "approved", { final: clean(text, 1500) });
     if (!r) return say("Suggestion not found.");
     if (r.already) return say(`#${sid} is already ${r.s.status}.`);
-    await tg(env, "editMessageText", { chat_id: m.chat.id, message_id: m.reply_to_message.message_id, text: card(r.s), parse_mode: "HTML", disable_web_page_preview: true });
+    await tg(env, "editMessageText", cardEdit(m.chat.id, m.reply_to_message.message_id, r.s));
     return say(reject ? "Rejected." : "Approved with your edit.");
   }
   const [cmd, ...rest] = text.split(/\s+/);
@@ -400,7 +439,7 @@ async function handleMessage(env, m) {
   const findUser = () => env.DB.prepare("SELECT * FROM users WHERE nick_lc=?").bind(arg).first();
   switch (cmd.toLowerCase().replace(/@\w+$/, "")) {
     case "/help":
-      return say("/pending — suggestions waiting for review\n/stats — counters\n/user nick — account info\n/ban nick · /unban nick\n\nOn a suggestion card: Approve, Reject, or reply with new text to edit and approve (“/no reason” rejects with a note).");
+      return say("/pending — suggestions waiting for review\n/approved [nick] — published notes, each with a Delete button\n/stats — counters\n/user nick — account info\n/ban nick · /unban nick\n\nOn a suggestion card: Approve, Reject, or reply with new text to edit and approve (“/no reason” rejects with a note). An approved note keeps a 🗑 Delete button (it asks to confirm) that removes it from the app.");
     case "/stats": {
       const c = await env.DB.prepare("SELECT SUM(status='pending') AS p, SUM(status='approved') AS a, SUM(status='rejected') AS r FROM suggestions").first();
       const u = await env.DB.prepare("SELECT COUNT(*) AS n, SUM(banned) AS b FROM users").first();
@@ -410,6 +449,17 @@ async function handleMessage(env, m) {
       const rows = (await env.DB.prepare("SELECT * FROM suggestions WHERE status='pending' ORDER BY id ASC LIMIT 10").all()).results || [];
       if (!rows.length) return say("Nothing is waiting for review.");
       for (const s of rows) await say(card(s), { reply_markup: keyboard(s) });
+      return;
+    }
+    case "/approved": {
+      // Опубликованные заметки: последние 10 (можно только одного автора), у каждой кнопка Delete. Новые внизу, ближе к полю ввода.
+      const from = arg ? "FROM suggestions s JOIN users u ON u.id = s.user_id WHERE s.status='approved' AND u.nick_lc=?" : "FROM suggestions s WHERE s.status='approved'";
+      const q = (sql) => (arg ? env.DB.prepare(sql).bind(arg) : env.DB.prepare(sql));
+      const rows = ((await q(`SELECT s.* ${from} ORDER BY s.id DESC LIMIT 10`).all()).results || []).reverse();
+      if (!rows.length) return say(arg ? "No approved notes from that nickname." : "No approved notes.");
+      for (const s of rows) await say(card(s), { reply_markup: keyboard(s) });
+      const total = (await q(`SELECT COUNT(*) AS n ${from}`).first())?.n || 0;
+      if (total > rows.length) await say(`Showing the latest ${rows.length} of ${total}. Delete some and send /approved again for the rest.`);
       return;
     }
     case "/user": {

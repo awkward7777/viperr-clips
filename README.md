@@ -40,7 +40,7 @@ They run on a schedule or by hand; only the Compat server workflow also runs whe
 A small Cloudflare Worker with Workers KV and an optional D1 database.
 
 - **Always on**: taste-compatibility codes (`POST /c`, `GET /c/<code>`, kept 24 hours) and device-to-device transfer (`POST /t`, `GET /t/<code>`, kept 10 minutes, read once).
-- **Community** (needs the D1 database and a Telegram bot token, otherwise answers `off`): accounts, suggestions for Story pages and moderation through a Telegram bot. Passwords never reach the server, only a key the phone derives from them.
+- **Community** (needs the D1 database and a Telegram bot token, otherwise answers `off`): accounts, suggestions for Story pages and moderation through a Telegram bot (approve, edit, reject, delete a published note, ban). Passwords never reach the server, only a key the phone derives from them.
 
 The **Compat server** workflow runs the tests in `server/test`, deploys the Worker and finishes with a smoke test. Run the tests yourself with `cd server && node --test test/community.test.mjs`.
 

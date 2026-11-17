@@ -146,6 +146,118 @@ test("Telegram: чужой секрет, чужой пользователь, о
   assert.equal((await w.call("POST", "/a/login", { nick: "fan_one", pw: dk("secret123", "Fan_One") })).status, 200);
 });
 
+test("Telegram: одобренную заметку можно убрать (Delete с подтверждением), /approved показывает список, лента в приложении обновляется", async () => {
+  const w = world();
+  const a = (await w.reg("Fan_One")).json, b = (await w.reg("Фанат")).json;
+  await w.call("POST", "/s", SUG({ text: "First test note that will be approved." }), a.token); // #1
+  await w.call("POST", "/s", SUG({ k: "rel-2:3", text: "Second test note from the first account." }), a.token); // #2
+  await w.call("POST", "/s", SUG({ k: "rel-3:1", text: "Third note from the second account, approved too." }), b.token); // #3
+  await w.call("POST", "/s", SUG({ k: "rel-4:0", text: "Fourth note that stays pending for the whole test." }), b.token); // #4
+  const tap = (data, from = ADMIN) => w.hook({ callback_query: { id: "q" + w.calls.length, from: { id: from }, data, message: { chat: { id: from }, message_id: 50 } } });
+  const say = (text, from = ADMIN) => w.hook({ message: { from: { id: from }, chat: { id: from }, text } });
+  const lastOf = (method) => w.calls.filter(c => c.method === method).at(-1).body;
+  const answerText = () => lastOf("answerCallbackQuery").text;
+  const row = (id) => w.env.DB.prepare("SELECT status FROM suggestions WHERE id=?").bind(id).first();
+  const overlay = async () => (await w.call("GET", "/stories/overlay")).json;
+  const cardsAfter = (n) => w.calls.slice(n).filter(c => c.method === "sendMessage");
+  const btns = (c) => c.body.reply_markup.inline_keyboard[0][0].callback_data;
+
+  for (const id of [1, 2, 3]) await tap("a:" + id);
+  // сразу после одобрения у карточки есть кнопка Delete: ошибочное одобрение можно откатить на месте
+  assert.deepEqual(lastOf("editMessageText").reply_markup.inline_keyboard, [[{ text: "🗑 Delete", callback_data: "d:3" }]]);
+  let ov = await overlay();
+  assert.deepEqual(Object.keys(ov.notes).sort(), ["rel-1:0", "rel-2:3", "rel-3:1"]);
+  const v0 = ov.v;
+
+  // /approved: три одобренные (новые внизу), у каждой Delete; ждущая #4 в список не попадает; не админу не отвечает
+  let n = w.calls.length;
+  await say("/approved");
+  let cards = cardsAfter(n);
+  assert.deepEqual(cards.map(btns), ["d:1", "d:2", "d:3"]);
+  assert.match(cards[0].body.text, /^📝 #1 · Fan_One/);
+  n = w.calls.length;
+  await say("/approved fan_one");
+  assert.deepEqual(cardsAfter(n).map(btns), ["d:1", "d:2"]);
+  n = w.calls.length;
+  await say("/approved ФАНАТ");
+  assert.deepEqual(cardsAfter(n).map(btns), ["d:3"]);
+  await say("/approved nobody");
+  assert.match(lastOf("sendMessage").text, /No approved notes from that nickname/);
+  n = w.calls.length;
+  await say("/approved", 5);
+  assert.equal(w.calls.length, n);
+
+  // Delete только спрашивает подтверждение и ничего не стирает; Cancel возвращает кнопку Delete
+  await tap("d:1");
+  assert.deepEqual(lastOf("editMessageReplyMarkup").reply_markup.inline_keyboard[0].map(x => x.callback_data), ["y:1", "n:1"]);
+  assert.equal((await row(1)).status, "approved");
+  assert.equal((await overlay()).v, v0);
+  await tap("n:1");
+  assert.deepEqual(lastOf("editMessageReplyMarkup").reply_markup.inline_keyboard, [[{ text: "🗑 Delete", callback_data: "d:1" }]]);
+  assert.equal(answerText(), "Cancelled");
+  // не админ удалить не может
+  await tap("y:1", 5);
+  assert.equal(answerText(), "Not allowed");
+  assert.equal((await row(1)).status, "approved");
+
+  // подтверждение удаляет: строка исчезает, карточка становится «Deleted» без кнопок, лента заметок пересобрана
+  await tap("d:1");
+  await tap("y:1");
+  assert.equal(await row(1), null);
+  assert.match(lastOf("editMessageText").text, /🗑 <b>Deleted<\/b>/);
+  assert.equal(lastOf("editMessageText").reply_markup, undefined);
+  assert.equal(answerText(), "Deleted");
+  ov = await overlay();
+  assert.deepEqual(Object.keys(ov.notes).sort(), ["rel-2:3", "rel-3:1"]);
+  assert.ok(ov.v > v0);
+  // приложение со старой версией получит новую ленту уже без этой заметки
+  const old = (await w.call("GET", "/stories/overlay?v=" + v0)).json;
+  assert.equal(old.v, ov.v);
+  assert.equal(old.notes["rel-1:0"], undefined);
+  assert.deepEqual((await w.call("GET", "/stories/overlay?v=" + ov.v)).json, { v: ov.v, same: true });
+
+  // старая кнопка по уже удалённой заметке: ничего не ломается, версия ленты не растёт
+  await tap("y:1");
+  assert.equal(answerText(), "Already deleted");
+  await tap("d:1");
+  assert.equal(answerText(), "Already deleted");
+  assert.equal((await overlay()).v, ov.v);
+  // ждущее предложение этими кнопками не удалить
+  for (const d of ["d:4", "y:4", "n:4"]) {
+    await tap(d);
+    assert.equal(answerText(), "Not published, nothing to delete", d);
+  }
+  assert.equal((await row(4)).status, "pending");
+  assert.equal((await overlay()).v, ov.v);
+
+  // автор не видит удалённую в своём списке, счётчики сходятся
+  assert.deepEqual((await w.call("GET", "/s/mine", undefined, a.token)).json.items.map(i => i.id), [2]);
+  await say("/stats");
+  assert.match(lastOf("sendMessage").text, /Pending: 1 · Approved: 2 · Rejected: 0/);
+
+  // правка ответом на карточку тоже оставляет кнопку Delete
+  const s5 = await w.call("POST", "/s", SUG({ k: "rel-5:0", text: "Fifth note, the admin will fix it by replying." }), b.token);
+  await w.hook({ message: { from: { id: ADMIN }, chat: { id: ADMIN }, text: "Fifth note, fixed by the admin.", reply_to_message: { message_id: 61, text: `📝 #${s5.json.id} · Фанат\n🎵 x` } } });
+  assert.deepEqual(w.calls.filter(c => c.method === "editMessageText").at(-1).body.reply_markup.inline_keyboard, [[{ text: "🗑 Delete", callback_data: "d:" + s5.json.id }]]);
+
+  // убрали всё: лента пустая, но версия выросла, поэтому приложение её заберёт
+  const before = (await overlay()).v;
+  for (const id of [2, 3, s5.json.id]) { await tap("d:" + id); await tap("y:" + id); }
+  ov = await overlay();
+  assert.deepEqual(ov.notes, {});
+  assert.ok(ov.v > before);
+
+  // длинный список: показываем 10 последних и говорим, сколько всего (заметки без автора, как после удаления аккаунта)
+  for (let i = 0; i < 12; i++) {
+    await w.env.DB.prepare("INSERT INTO suggestions(user_id,nick,k,section,text,status,created,decided) VALUES(NULL,'',?,'other',?,'approved',1,1)").bind("rel-9:" + i, "Bulk note number " + i + " for the list limit.").run();
+  }
+  n = w.calls.length;
+  await say("/approved");
+  cards = cardsAfter(n);
+  assert.equal(cards.length, 11);
+  assert.match(cards.at(-1).body.text, /Showing the latest 10 of 12/);
+});
+
 test("Telegram: /start показывает ID, команды только для админа", async () => {
   const w = world();
   await w.hook({ message: { from: { id: 42 }, chat: { id: 42 }, text: "/start" } });
