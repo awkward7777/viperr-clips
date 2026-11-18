@@ -34,6 +34,8 @@ They run on a schedule or by hand; only the Compat server workflow also runs whe
 | BPM | weekly |
 | Compat server | on changes under `server/`, or by hand |
 | Lyrics audit / fill / report / unreleased, Mood, genres probe, Genius probe, Detect clip black bars | by hand |
+| Add clips (YouTube ids to the `clips` release as `<id>.mp4`; report in `clips_probe.txt`) | by hand |
+| Catalog audit (broken audio links, top tracks, songs missing compared with Apple Music, Deezer and YouTube Music; report in `audit_probe.txt`) | by hand |
 
 ## Server (`server/`)
 

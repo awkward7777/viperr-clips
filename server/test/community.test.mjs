@@ -48,6 +48,11 @@ test("регистрация: успех, повтор ника, плохие и
   assert.match(a.json.recovery, /^[A-Z0-9]{5}(-[A-Z0-9]{5}){3}$/);
   assert.equal((await w.reg("fan_one")).status, 409);
   for (const bad of ["ab", "admin", "Viperr_Fan", "a b", "x__y", "-abc", "Moderator77"]) assert.equal((await w.reg(bad)).status, 400, bad);
+  // приложение показывает разные тексты: «не подходит по форме» и «слово зарезервировано», а не одно общее про цифры и знаки
+  for (const bad of ["ab", "a b", "x__y", "-abc"]) { const r = (await w.reg(bad)).json; assert.equal(r.error, "nick_bad", bad); assert.equal(r.why, undefined, bad); }
+  for (const bad of ["admin", "Viperr_Fan", "Moderator77", "kaiangel_fan"]) { const r = (await w.reg(bad)).json; assert.equal(r.error, "nick_bad", bad); assert.equal(r.why, "reserved", bad); }
+  // обычные имена без цифр, знаков и подчёркиваний проходят
+  for (const ok of ["Lena", "Алиса", "kai.fan", "Nikita2005"]) assert.equal((await w.reg(ok)).status, 200, ok);
   assert.equal((await w.reg("Фанат")).status, 200);
   assert.equal((await w.call("POST", "/a/register", { nick: "okname", pw: "short" })).status, 400);
 });

@@ -1,0 +1,61 @@
+name: Add clips
+
+# Downloads YouTube music videos by id and attaches them to the `clips` release as <id>.mp4.
+# The app plays clips from there. 720p/480p versions are made later by "Quality variants", crop data by "Crop".
+# The report is committed as clips_probe.txt / clips_probe.json.
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: "YouTube video ids (11 characters), separated by spaces"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency: clips
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: pip install -U "yt-dlp[default]"
+      - name: PO token server (replaces YouTube cookies when possible)
+        run: |
+          git clone -q --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /tmp/pot
+          pip install -q bgutil-ytdlp-pot-provider
+          cd /tmp/pot/server && npm ci --silent && npx tsc
+          nohup node build/main.js > /tmp/pot.log 2>&1 &
+          sleep 5
+          curl -s localhost:4416/ping
+          mkdir -p ~/.config/yt-dlp
+          printf '%s\n' '--js-runtimes node' '--extractor-args youtubepot-bgutilhttp:base_url=http://127.0.0.1:4416' > ~/.config/yt-dlp/config
+      - name: YouTube cookies (optional)
+        env:
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
+        run: |
+          if [ -n "$YT_COOKIES" ]; then
+            printf '%s' "$YT_COOKIES" > "$HOME/cookies.txt"
+            printf '%s\n' "--cookies $HOME/cookies.txt" >> ~/.config/yt-dlp/config
+          fi
+      - name: Download and attach
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IDS: ${{ github.event.inputs.ids }}
+        run: python3 clips_add.py
+      - name: Commit the report
+        if: ${{ always() }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add clips_probe.txt clips_probe.json 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "Clips report" && git pull --rebase -q && git push -q)

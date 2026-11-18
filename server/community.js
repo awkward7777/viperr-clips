@@ -131,7 +131,9 @@ async function register(req, env, ip) {
   const b = await body(req); if (!b) return J({ error: "json" }, 400);
   const nick = typeof b.nick === "string" ? b.nick.normalize("NFKC").trim() : "";
   const pw = typeof b.pw === "string" ? b.pw.toLowerCase() : "";
-  if (!nickOk(nick) || reserved(nick.toLowerCase())) return J({ error: "nick_bad" }, 400);
+  if (!nickOk(nick)) return J({ error: "nick_bad" }, 400);
+  // error остаётся прежним ради старых версий приложения; новое приложение по "why" объясняет, что слово зарезервировано, а не «нужны цифры и знаки»
+  if (reserved(nick.toLowerCase())) return J({ error: "nick_bad", why: "reserved" }, 400);
   if (!/^[0-9a-f]{64}$/.test(pw)) return J({ error: "pw_bad" }, 400);
   const lc = nick.toLowerCase();
   if (await env.DB.prepare("SELECT 1 AS x FROM users WHERE nick_lc=?").bind(lc).first()) return J({ error: "nick_taken" }, 409);
