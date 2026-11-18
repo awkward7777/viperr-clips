@@ -1,0 +1,215 @@
+{
+ "bad_audio": [
+  [
+   "39",
+   0,
+   "KISS",
+   "audio/kiss.mp3",
+   200,
+   "text/html; charset=utf-8",
+   null,
+   "3c21444f43545950"
+  ],
+  [
+   "87",
+   14,
+   "Smells Like Teen Spirit",
+   "audio/smells-like-teen-spirit.mp3",
+   200,
+   "audio/mpeg",
+   "88016",
+   "4944330400000000"
+  ]
+ ],
+ "missing": [
+  {
+   "title": "ММ",
+   "artist": "Kai Angel",
+   "album": "ММ",
+   "date": "2023-03-24",
+   "on": [
+    "deezer"
+   ]
+  },
+  {
+   "title": "AVRIL LAVIGNE",
+   "artist": "9mice",
+   "album": "ASPHALT",
+   "date": "2023-05-26",
+   "on": [
+    "deezer"
+   ]
+  },
+  {
+   "title": "ДОРОГАЯ",
+   "artist": "9mice",
+   "album": "ASPHALT",
+   "date": "2023-05-26",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "ИМЯ",
+   "artist": "9mice",
+   "album": "ASPHALT",
+   "date": "2023-05-26",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "УМИРАЮ",
+   "artist": "9mice",
+   "album": "ASPHALT",
+   "date": "2023-05-26",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "KYLIE",
+   "artist": "Kai Angel",
+   "album": "ANGEL MAY CRY",
+   "date": "2023-07-07",
+   "on": [
+    "deezer"
+   ]
+  },
+  {
+   "title": "ДЕВОЧКА (feat. glaive)",
+   "artist": "9mice",
+   "album": "ORPHEUS",
+   "date": "2023-12-08",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "КИНО",
+   "artist": "9mice",
+   "album": "ORPHEUS",
+   "date": "2023-12-08",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "МНОГО",
+   "artist": "9mice",
+   "album": "ORPHEUS",
+   "date": "2023-12-08",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "РАЗРУШИТЬ",
+   "artist": "9mice",
+   "album": "ORPHEUS",
+   "date": "2023-12-08",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "СУКА (feat. lifelessgarments)",
+   "artist": "9mice",
+   "album": "ORPHEUS",
+   "date": "2023-12-08",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "ХОЧЕТ",
+   "artist": "9mice",
+   "album": "ORPHEUS",
+   "date": "2023-12-08",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "Your Love",
+   "artist": "9mice",
+   "album": "Your Love - Single",
+   "date": "2024-05-17",
+   "on": [
+    "apple",
+    "deezer"
+   ]
+  },
+  {
+   "title": "Blum - Big City Life",
+   "artist": "9mice & Kai Angel",
+   "album": "Heavy Metal 2",
+   "date": "2024-09-13",
+   "on": [
+    "apple",
+    "deezer"
+   ]
+  },
+  {
+   "title": "Fountainebleu",
+   "artist": "9mice & Kai Angel",
+   "album": "Heavy Metal 2",
+   "date": "2024-09-13",
+   "on": [
+    "apple"
+   ]
+  },
+  {
+   "title": "scream!",
+   "artist": "Kai Angel",
+   "album": "ANGEL MAY CRY 2",
+   "date": "2025-04-18",
+   "on": [
+    "apple",
+    "deezer"
+   ]
+  },
+  {
+   "title": "naive",
+   "artist": "Kai Angel",
+   "album": "damage",
+   "date": "2025-09-05",
+   "on": [
+    "apple",
+    "deezer"
+   ]
+  },
+  {
+   "title": "ANnnnnNIHILATIONNN",
+   "artist": "9mice",
+   "album": "9mm",
+   "date": "2025-10-17",
+   "on": [
+    "deezer"
+   ]
+  },
+  {
+   "title": "Club Tainted",
+   "artist": "Kai Angel",
+   "album": "Club Tainted - Single",
+   "date": "2025-12-19",
+   "on": [
+    "apple",
+    "deezer"
+   ]
+  },
+  {
+   "title": "Numb",
+   "artist": "9mice",
+   "album": "Numb",
+   "date": "2026-09-29",
+   "on": [
+    "deezer"
+   ]
+  }
+ ],
+ "platform_rows": {
+  "apple": 999,
+  "deezer": 283
+ }
+}

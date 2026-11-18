@@ -1,0 +1,77 @@
+releases on site: 87 | in new.json: 5 | tracks: 272
+
+======== 1. KISS
+release id=39 title='KISS' type=Сингл artist='Kai Angel & 9mice' date=2023-05-28 unreleased=True track#0 of 1
+  keys: ['a', 'au', 'cover', 'cr', 'dt', 'h', 'id', 'lf', 't', 'tr', 'type', 'un', 'y']
+  au[i] = 'audio/kiss.mp3'
+  cr[i] = {"a": ["Kai Angel", "9mice"], "p": ["Kai Angel"], "isrc": "", "d": 119}
+  raw url: https://discographyviperr.pages.dev/audio/kiss.mp3
+  quoted url: https://discographyviperr.pages.dev/audio/kiss.mp3
+  chars that need escaping: []
+  GET 200 text/html; charset=utf-8 range/len: None | first bytes: 3c21444f43545950452068746d6c3e0a <!DOCTYPE html>.
+  downloaded bytes: 139132
+  ffprobe: { }  | err: /tmp/kiss.bin: Invalid data found when processing input
+
+  duration in catalog (cr.d): 119
+  low-quality variants listed for 39:0 -> None
+
+======== 2. audio links health
+tracks with an audio link: 272 | tracks without: 0
+problem links: 2
+   39:0 'KISS' | status 200 text/html; charset=utf-8 | size None | audio/kiss.mp3
+   87:14 'Smells Like Teen Spirit' | status 200 audio/mpeg | size 88016 | audio/smells-like-teen-spirit.mp3
+
+======== 3. top tracks by popular.json (formula of the app: views/1000 + growth/20)
+tracks with a score: 231 | popular.json time: 1794916853
+Kai Angel: 165 unique tracks, 158 with a score
+      508.8  Ice + Alabaster  (Heavy Metal 2)
+      439.5  Ринопластика (Surgery)  (Heavy Metal 2)
+      366.7  LIPSTICK  (HEAVY METAL)
+      326.6  andy warhol  (Shh...)
+      296.3  Phoenix  (Heavy Metal 2)
+      228.3  2017  (Heavy Metal 2)
+      173.6  hello bandits  (hello bandits) [unreleased]
+      168.9  Madam  (damage)
+   newest five (what the app shows today): ['Shh!', 'chateau', 'gladiator', 'OFFICE SONG', 'david bowie']
+9mice: 125 unique tracks, 108 with a score
+      508.8  Ice + Alabaster  (Heavy Metal 2)
+      439.5  Ринопластика (Surgery)  (Heavy Metal 2)
+      366.7  LIPSTICK  (HEAVY METAL)
+      296.3  Phoenix  (Heavy Metal 2)
+      253.9  FACE  (ORPHEUS)
+      228.3  2017  (Heavy Metal 2)
+      173.6  hello bandits  (hello bandits) [unreleased]
+      159.5  Fountainebleau  (Heavy Metal 2)
+   newest five (what the app shows today): ['Smokey Eyes', 'Inertia // I=MR ²', 'Honey Bunny (Numb)', 'BURN', 'Нет Тебя']
+
+======== 4. songs on streaming platforms that are not in the catalog
+  deezer artist Kai Angel: id=165492217 fans=3115
+  deezer artist 9mice: id=150616292 fans=2355
+  ! HTTP 403 https://api.spotify.com/v1/search?type=artist&limit=10&q=Kai%20Angel
+  spotify: artist not found: Kai Angel
+  ! HTTP 403 https://api.spotify.com/v1/search?type=artist&limit=10&q=9mice
+  spotify: artist not found: 9mice
+apple: 999 track rows collected
+deezer: 283 track rows collected
+
+NOT IN CATALOG: 20 songs (by title; remixes/versions under another title may show up here too)
+  2023-03-24  ММ  | Kai Angel | album: ММ | on: deezer
+  2023-05-26  AVRIL LAVIGNE  | 9mice | album: ASPHALT | on: deezer
+  2023-05-26  ДОРОГАЯ  | 9mice | album: ASPHALT | on: apple
+  2023-05-26  ИМЯ  | 9mice | album: ASPHALT | on: apple
+  2023-05-26  УМИРАЮ  | 9mice | album: ASPHALT | on: apple
+  2023-07-07  KYLIE  | Kai Angel | album: ANGEL MAY CRY | on: deezer
+  2023-12-08  ДЕВОЧКА (feat. glaive)  | 9mice | album: ORPHEUS | on: apple
+  2023-12-08  КИНО  | 9mice | album: ORPHEUS | on: apple
+  2023-12-08  МНОГО  | 9mice | album: ORPHEUS | on: apple
+  2023-12-08  РАЗРУШИТЬ  | 9mice | album: ORPHEUS | on: apple
+  2023-12-08  СУКА (feat. lifelessgarments)  | 9mice | album: ORPHEUS | on: apple
+  2023-12-08  ХОЧЕТ  | 9mice | album: ORPHEUS | on: apple
+  2024-05-17  Your Love  | 9mice | album: Your Love - Single | on: apple,deezer
+  2024-09-13  Blum - Big City Life  | 9mice & Kai Angel | album: Heavy Metal 2 | on: apple,deezer
+  2024-09-13  Fountainebleu  | 9mice & Kai Angel | album: Heavy Metal 2 | on: apple
+  2025-04-18  scream!  | Kai Angel | album: ANGEL MAY CRY 2 | on: apple,deezer
+  2025-09-05  naive  | Kai Angel | album: damage | on: apple,deezer
+  2025-10-17  ANnnnnNIHILATIONNN  | 9mice | album: 9mm | on: deezer
+  2025-12-19  Club Tainted  | Kai Angel | album: Club Tainted - Single | on: apple,deezer
+  2026-09-29  Numb  | 9mice | album: Numb | on: deezer
