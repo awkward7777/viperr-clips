@@ -1,0 +1,34 @@
+name: Catalog audit
+
+# Read-only check of the catalog (broken audio links, top tracks, songs missing compared with Apple Music / Deezer / Spotify).
+# The report is committed as audit_probe.txt and audit_probe.json.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: audit
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Audit
+        env:
+          SPOTIFY_ID: ${{ secrets.SPOTIFY_ID }}
+          SPOTIFY_SECRET: ${{ secrets.SPOTIFY_SECRET }}
+        run: python3 audit.py
+      - name: Commit the report
+        if: ${{ always() }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add audit_probe.txt audit_probe.json 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "Audit report" && git pull --rebase -q && git push -q)
