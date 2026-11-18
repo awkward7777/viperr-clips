@@ -53,6 +53,15 @@ def norm(s):
     return re.sub(r"[^\w]+", "", s, flags=re.U)
 
 
+_RU = dict(zip("абвгдезийклмнопрстуфхцыэё", ["a", "b", "v", "g", "d", "e", "z", "i", "i", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u", "f", "h", "c", "y", "e", "e"]))
+_RU.update({"ж": "zh", "ч": "ch", "ш": "sh", "щ": "sch", "ъ": "", "ь": "", "ю": "yu", "я": "ya"})
+
+
+def norm2(s):
+    """norm() плюс кириллица латиницей: «ДОРОГАЯ» и «Dorogaya» считаются одним названием."""
+    return norm("".join(_RU.get(ch, ch) for ch in (s or "").lower()))
+
+
 def quote(u):
     u = u if u.startswith("http") else BASE + u.lstrip("/")
     return urllib.parse.quote(u, safe=":/%?&=+#")
@@ -74,6 +83,25 @@ extra = json.load(open("new.json", encoding="utf-8"))
 allrel = site + extra
 p("releases on site:", len(site), "| in new.json:", len(extra), "| tracks:", sum(len(r.get("tr") or []) for r in allrel))
 cat_titles = {norm(t) for r in allrel for t in (r.get("tr") or [])}
+cat_list = [(t, norm2(t), r) for r in allrel for t in (r.get("tr") or [])]
+import difflib
+
+
+_closest_cache = {}
+
+
+def closest(title):
+    k = norm2(title)
+    if k not in _closest_cache:
+        scored = [(difflib.SequenceMatcher(None, k, x[1]).ratio(), x) for x in cat_list]
+        sc, best = max(scored, key=lambda z: z[0])
+        _closest_cache[k] = (best[0], best[2].get("t"), round(sc, 2))
+    return _closest_cache[k]
+
+
+section("0. catalog dump (release | type | date | artist | tracks)")
+for r in sorted(allrel, key=lambda x: x.get("dt") or ""):
+    p(f"{r.get('id')} | {r.get('t')} | {r.get('type')} | {r.get('dt')} | {r.get('a')} | " + " / ".join(r.get("tr") or []))
 
 # ---------- 1. KISS ----------
 section("1. KISS")
@@ -269,7 +297,37 @@ def spotify():
             time.sleep(0.15)
 
 
-for fn in (apple, deezer, spotify):
+def ytmusic():
+    from ytmusicapi import YTMusic
+    ytm = YTMusic()
+    for name in ARTISTS:
+        res = ytm.search(name, filter="artists", limit=8)
+        pick = next((x for x in res if (x.get("artist") or "").lower() == name.lower()), None)
+        if not pick:
+            p("  ytmusic: artist not found:", name); continue
+        a = ytm.get_artist(pick["browseId"])
+        p(f"  ytmusic artist {name}: {pick['browseId']}")
+        for t in (a.get("songs") or {}).get("results", []):
+            add("ytmusic", t.get("title"), ", ".join(x["name"] for x in t.get("artists") or []), (t.get("album") or {}).get("name"), "", t.get("videoId"))
+        for key in ("albums", "singles"):
+            sec = a.get(key) or {}
+            items = sec.get("results") or []
+            if sec.get("browseId") and sec.get("params"):
+                try:
+                    items = ytm.get_artist_albums(sec["browseId"], sec["params"], limit=None)
+                except Exception as e:
+                    p("   ytmusic albums list failed:", repr(e)[:100])
+            for it in items:
+                try:
+                    alb = ytm.get_album(it["browseId"])
+                except Exception as e:
+                    continue
+                for t in alb.get("tracks") or []:
+                    add("ytmusic", t.get("title"), ", ".join(x["name"] for x in t.get("artists") or []), alb.get("title"), alb.get("year"), t.get("videoId"))
+                time.sleep(0.2)
+
+
+for fn in (apple, deezer, spotify, ytmusic):
     try:
         fn()
     except Exception as e:
@@ -279,28 +337,36 @@ for pf, l in plat.items():
 
 # оставляем только песни, где участвует наш артист; сравниваем по названию
 mine = {n.lower() for n in ARTISTS}
-missing = {}
+missing, same = {}, {}
 for pf, l in plat.items():
-    for s in l:
-        if not s["title"]:
+    for s_ in l:
+        if not s_["title"]:
             continue
-        who = {x.strip().lower() for x in re.split(r" & |, |,| feat\.? | x ", s["artist"] or "")}
+        who = {x.strip().lower() for x in re.split(r" & |, |,| feat\.? | x ", s_["artist"] or "")}
         if not (who & mine):
             continue
-        if norm(s["title"]) in cat_titles:
+        if norm(s_["title"]) in cat_titles:
             continue
-        key = norm(s["title"])
-        m = missing.setdefault(key, {"title": s["title"], "artist": s["artist"], "album": s["album"], "date": s["date"], "on": set()})
+        key = norm2(s_["title"])
+        near = closest(s_["title"])
+        bucket = same if near[2] >= 0.86 else missing
+        m = bucket.setdefault(key, {"title": s_["title"], "artist": s_["artist"], "album": s_["album"], "date": s_["date"], "on": set(), "near": near})
         m["on"].add(pf)
-        if s["date"] and (not m["date"] or s["date"] < m["date"]):
-            m["date"] = s["date"]
+        if s_["date"] and (not m["date"] or s_["date"] < m["date"]):
+            m["date"] = s_["date"]
 rows = sorted(missing.values(), key=lambda m: (m["date"] or "9999", m["title"]))
 p("")
-p(f"NOT IN CATALOG: {len(rows)} songs (by title; remixes/versions under another title may show up here too)")
+p(f"NOT IN CATALOG: {len(rows)} songs (by title; closest catalog title and match score shown)")
 for m in rows:
-    p(f"  {m['date'] or '?':10}  {m['title']}  | {m['artist']} | album: {m['album']} | on: {','.join(sorted(m['on']))}")
+    p(f"  {m['date'] or '?':10}  {m['title']}  | {m['artist']} | album: {m['album']} | on: {','.join(sorted(m['on']))} | closest in catalog: {m['near'][0]!r} ({m['near'][1]}) {m['near'][2]}")
+p("")
+p(f"PROBABLY THE SAME SONG UNDER ANOTHER SPELLING (not counted as missing): {len(same)}")
+for m in sorted(same.values(), key=lambda m: m["title"]):
+    p(f"  {m['title']}  ~  {m['near'][0]!r} ({m['near'][1]}) {m['near'][2]} | on: {','.join(sorted(m['on']))}")
 RES["missing"] = [{**m, "on": sorted(m["on"])} for m in rows]
+RES["same"] = [{**m, "on": sorted(m["on"])} for m in same.values()]
 RES["platform_rows"] = {k: len(v) for k, v in plat.items()}
+RES["rows"] = plat
 
 open("audit_probe.txt", "w", encoding="utf-8").write("\n".join(OUT) + "\n")
 json.dump(RES, open("audit_probe.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
