@@ -1,5 +1,99 @@
 releases on site: 87 | in new.json: 5 | tracks: 272
 
+======== 0. catalog dump (release | type | date | artist | tracks)
+am1593961073 | New-York | Сингл | 2021-11-07 | 9mice | New-York
+80 | Lonely | Сингл | 2021-11-24 | 9mice | Lonely
+56 | SOLOIST | Альбом | 2021-12-28 | 9mice | SOLOIST / SPRITE / NEW-YORK / a closed feeling interlude. / NEED4SPIT / LOTTA VOLKOVA / VULCAN
+42 | Moon | Сингл | 2022-00-00 | Kai Angel & 9mice | Moon
+55 | boost it | Сингл | 2022-00-00 | Kai Angel | boost it
+86 | bluöra | Альбом | 2022-00-00 | 9mice | RICH $EX / Something In A Way / I FW it / B DPRESSED / Рояль / Type 0 Bih / NIRVANA / Close 2 u
+78 | SORRY BOUT THAT | Сингл | 2022-03-11 | Nikitsunami & 9mice | SORRY BOUT THAT
+84 | SLST | Сингл | 2022-04-01 | 9mice | SLST
+45 | SHADOW FREESTYLE | Сингл | 2022-04-08 | Kai Angel | SHADOW FREESTYLE / SILVER CP
+5 | HASHIRA | Сингл | 2022-04-22 | Kai Angel | HASHIRA
+38 | kiss me right b4 u go | Сингл | 2022-05-06 | Kai Angel | kiss me right b4 u go
+6 | kAiCoRe | EP | 2022-07-01 | Kai Angel | what's uppppppxddDDD / ~boo~ / rain (hEaVy) / Trinity / HASHIRA / gyutaro theme (UgLy)
+81 | Lungs Flowers / Vnutri | Сингл | 2022-07-01 | 9mice | Lungs Flowers / Vnutri
+82 | Nina Kraviz | Сингл | 2022-08-05 | Pupis & 9mice | Nina Kraviz
+8 | Madonna | Сингл | 2022-08-17 | Kai Angel | Madonna
+7 | Korea Graves | Сингл | 2022-09-16 | Kai Angel | Korea Graves
+2 | *** TRIVIAL | Сингл | 2022-10-26 | Kai Angel & 9mice | *** TRIVIAL
+40 | MARILYN MANSON DEMO | Сингл | 2022-11-24 | Kai Angel | MARILYN MANSON DEMO
+25 | ОТРАВЛЕН ТОБОЙ | Сингл | 2022-12-02 | Kai Angel & 9mice | ОТРАВЛЕН ТОБОЙ
+3 | 101 ПРИЧИНА | Сингл | 2022-12-16 | Kai Angel | 101 ПРИЧИНА
+58 | POEMI KOSO TAPE | Альбом | 2022-12-22 | 9mice | swampGod / SNICKERS / time greater than Bitch. / Netu/Love
+33 | DIANA PRINCESS | Сингл | 2023-00-00 | 9mice & Kai Angel | DIANA PRINCESS
+34 | END OF THE WORLD | Сингл | 2023-01-00 | Kai Angel & 9mice | END OF THE WORLD
+69 | UNDERGROUND POP FREESTYLE | Сингл | 2023-01-09 | Kai Angel | UNDERGROUND POP FREESTYLE
+1 | щ | Сингл | 2023-02-10 | 9mice & Kai Angel | щ
+11 | HEAVY METAL | EP | 2023-02-17 | Kai Angel & 9mice | LIPSTICK / N1CHEVO / RESIDENT EVI7 / AQUAFINA / HEAVY METAL / OD1NOKO FREESTYLE
+37 | i need to chill | Сингл | 2023-02-27 | Kai Angel | i need to chill
+54 | Насилие | Сингл | 2023-03-23 | Kai Angel & 9mice | Насилие
+17 | MARILYN MANSON | Альбом | 2023-03-24 | Kai Angel | MARILYN MANSON / STUPID / PRADA PARTY / SS16 CYCLOPS / HELLRAISER / MANNEQUIN / FRIDAY 13 / NO PAIN / BALLERINA / MONROE TEARS / FUNERAL
+52 | ЛЮБОВЬ | Сингл | 2023-05-00 | Kai Angel & 9mice | ЛЮБОВЬ
+57 | ASPHALT | Альбом | 2023-05-26 | 9mice | ASSAULT / BELLA / IMYA / DOROGAYA / SSNS / Y3BOK / KIKO / RIOT MUZIK / HEROIN / ALASKA / YMIRAU
+39 | KISS | Сингл | 2023-05-28 | Kai Angel & 9mice | KISS
+13 | THRILLEЯ | Сингл | 2023-06-02 | Kai Angel & 9mice | THRILLEЯ
+53 | ЗАБУДЕТ | Сингл | 2023-06-10 | Kai Angel | ЗАБУДЕТ
+47 | SKULL | Сингл | 2023-06-14 | Kai Angel | SKULL
+21 | ANGEL MAY CRY | Альбом | 2023-07-07 | Kai Angel | JUMP! / KYLIE MINOGUE / PARIS 2008 / BABY / $$$ / DEAD MEN WALKING / ANGEL MAY CRY
+9 | БЕГИ ОТ МЕНЯ | Сингл | 2023-08-11 | ANIKV, Kai Angel & 9mice | БЕГИ ОТ МЕНЯ
+am1702936771 | ГЕРОИНЯ | Сингл | 2023-08-18 | 9mice | ГЕРОИНЯ
+10 | FAKE LOVE | Сингл | 2023-09-15 | Kai Angel | FAKE LOVE / ANGRYY
+59 | CHAINSAW | Сингл | 2023-09-22 | 9mice | CHAINSAW / MMW
+35 | GP$ | Сингл | 2023-11-16 | Kai Angel & 9mice | GP$
+85 | STAY WITH ME | Сингл | 2023-12-01 | 9mice & Kai Angel | STAY WITH ME
+70 | Октябрь | Сингл | 2023-12-08 | LIL KRYSTALLL & 9mice | Октябрь
+71 | ORPHEUS | Альбом | 2023-12-08 | 9mice | FACE / SV / SHAKE / STAY WITH ME / KINO / XO4ET / MNOGO / SOOQA / ELA-ELA / GWYN PLAINE / BADMAN / ГЕРОИНЯ / DEVO4KA / RAZRUSHIT / 4EVER
+51 | Ur The Moon | Сингл | 2023-12-10 | Kai Angel & 9mice | Ur The Moon
+83 | RANGE | Сингл | 2024-01-19 | UNEEK & 9mice | RANGE
+32 | DANCE LIKE U IN PAIN | Сингл | 2024-02-04 | Kai Angel | DANCE LIKE U IN PAIN
+44 | say10 | Сингл | 2024-02-15 | Kai Angel | say10
+46 | SHOW OFF | Сингл | 2024-03-08 | Kai Angel | SHOW OFF
+43 | pornstar | Сингл | 2024-03-09 | Kai Angel | pornstar
+20 | GOD SYSTEM | Альбом | 2024-03-22 | Kai Angel | 1-800-PARADISE / SLAYERR / SPIDERR / EUPHORIA / RESTART / ХОЛОД / MYSPACE / VICTIM / DANCE LIKE U IN PAIN / RAW / RIOT / SHOW OFF / DOLLARS OUT ON TOP ON GOD / HILLS / GOD SYSTEM / BAD BITCHES ONLY / /godmode
+36 | hello bandits | Сингл | 2024-08-17 | 9mice & Kai Angel | hello bandits
+87 | Heavy Metal 2 | Альбом | 2024-09-13 | 9mice & Kai Angel | Cyber is Dead Interlude / Fountainebleau / Phoenix / Blum (Big City Life) / Ринопластика (Surgery) / Paparazzi / So Good / Frank Ocean / 2017 / Da Vinci / LMFAO / Ice + Alabaster / Tusa V.I.P. / I Love God / Smells Like Teen Spirit / Hollywood Takeover... / I Wanna Be Your Dog / Hate People / Fire Alarm / Murder On The Dancefloor / Homecoming
+12 | Madam | Сингл | 2024-12-13 | Kai Angel | Madam
+62 | Пауки (OST Смертельный стрим) | Сингл | 2025-01-03 | 9mice & Kai Angel | Пауки (OST Смертельный стрим)
+41 | mercedes benz | Сингл | 2025-02-07 | Kai Angel | mercedes benz
+48 | slipknot | Сингл | 2025-02-07 | Kai Angel | slipknot
+64 | Anora | Сингл | 2025-02-14 | 9mice | Anora
+77 | indiana | Сингл | 2025-02-15 | 9mice | indiana
+16 | quiet turn up | Сингл | 2025-03-07 | Kai Angel | quiet turn up
+14 | jennifer's body | Сингл | 2025-03-21 | Kai Angel | jennifer's body
+61 | lalala | Сингл | 2025-04-11 | LILDRUGHILL & 9mice | lalala
+63 | ГОША РУБЧИНСКИЙ | Сингл | 2025-04-11 | 9mice | ГОША РУБЧИНСКИЙ
+15 | ANGEL MAY CRY 2 | Альбом | 2025-04-18 | Kai Angel | john galliano / millions / i hate fashion shows / metallica / laperouse / aimed u up / white ferrari
+66 | Narcotic | Сингл | 2025-05-17 | 9mice | Narcotic
+22 | hurt | Сингл | 2025-06-06 | Kai Angel | hurt
+65 | Москва - Владивосток | Сингл | 2025-06-20 | 9mice | Москва - Владивосток
+49 | smirnoff ice | Сингл | 2025-06-24 | Kai Angel | smirnoff ice
+23 | lovesong | Сингл | 2025-06-27 | Kai Angel | lovesong
+19 | welcome to forever | Сингл | 2025-08-01 | Kai Angel | welcome to forever
+60 | u+me/stranger | Сингл | 2025-08-07 | 9mice | u+me / stranger
+18 | damage | Альбом | 2025-09-05 | Kai Angel | are you happy / im all blessed the fuck up / basement / amy / mirrors / chelsea smile / 444 / parasocial freestyle / designer's paradise / fire walk with me / Madam / sirens / slave to the rhythm / drive / welcome to forever / 0 tears / damage
+24 | freddy krueger | Сингл | 2025-09-26 | Kai Angel | freddy krueger
+67 | Modafinil | Сингл | 2025-09-26 | glaive, Kurtains & Kai Angel | Modafinil
+68 | 9mm | Альбом | 2025-10-17 | 9mice | jenna / nirvana / distance / kill bill / evian / famous / humble / dry lips freestyle / romance / chanel no9 / Narcotic / less than 0 / sugar / acoustic / weightless / outro
+79 | imya2 | Сингл | 2025-11-02 | 9mice | imya2
+26 | Tainted Love | Сингл | 2025-12-19 | Kai Angel | Tainted Love
+27 | body double | Сингл | 2025-12-23 | Kai Angel | body double
+72 | Do Vesni | Сингл | 2026-03-27 | 9mice | Do Vesni
+28 | Limousine Music | Сингл | 2026-04-10 | Kai Angel | Limousine Music
+am1889890379 | Jealous | Сингл | 2026-04-10 | 9mice, Егор Крид, тёмный принц & madk1d | Jealous
+29 | Pretty Girls | Сингл | 2026-05-28 | Kai Angel | Pretty Girls
+74 | No Fear | Сингл | 2026-06-12 | 9mice | No Fear
+73 | Нет Тебя | Сингл | 2026-07-03 | 9mice & K | Нет Тебя
+75 | BURN | Сингл | 2026-07-10 | тёмный принц & 9mice | BURN
+50 | Sting | Сингл | 2026-08-10 | Kai Angel | Sting
+30 | Shh... | Альбом | 2026-09-04 | Kai Angel | TV / Mulholland / evil icon baby / pleasure / NAKED / Razorblade kiss / Pretty Girls / andy warhol / 1 more / BABYLON / le royal monceau gatsby séance / Limousine Music / yes i glow in the dark but also i am the dark / Flowers
+31 | Shh! | Альбом | 2026-09-11 | Kai Angel | Shh! / chateau / gladiator / OFFICE SONG / david bowie / having fun / Leopard Red / Sting / ew / STFU! / 1971 Rockstar / does it hurt? / Madam 2 / chrome hearts
+31 | Shh! | Альбом | 2026-09-11 | Kai Angel | Shh! / chateau / gladiator / OFFICE SONG / david bowie / having fun / Leopard Red / Sting / ew / STFU! / 1971 Rockstar / does it hurt? / Madam 2 / chrome hearts
+88 | Honey Bunny (Numb) | Сингл | 2026-09-30 | 9mice | Honey Bunny (Numb)
+76 | Inertia // I=MR ² | Сингл | 2026-10-02 | Contact Sports & 9mice | Inertia // I=MR ²
+am6825866216 | Smokey Eyes | Сингл | 2026-10-22 | 9mice | Smokey Eyes
+
 ======== 1. KISS
 release id=39 title='KISS' type=Сингл artist='Kai Angel & 9mice' date=2023-05-28 unreleased=True track#0 of 1
   keys: ['a', 'au', 'cover', 'cr', 'dt', 'h', 'id', 'lf', 't', 'tr', 'type', 'un', 'y']
@@ -45,33 +139,38 @@ Kai Angel: 165 unique tracks, 158 with a score
    newest five (what the app shows today): ['Smokey Eyes', 'Inertia // I=MR ²', 'Honey Bunny (Numb)', 'BURN', 'Нет Тебя']
 
 ======== 4. songs on streaming platforms that are not in the catalog
-  deezer artist Kai Angel: id=165492217 fans=3115
-  deezer artist 9mice: id=150616292 fans=2355
+  deezer artist Kai Angel: id=165492217 fans=3116
+  deezer artist 9mice: id=150616292 fans=2356
   ! HTTP 403 https://api.spotify.com/v1/search?type=artist&limit=10&q=Kai%20Angel
   spotify: artist not found: Kai Angel
   ! HTTP 403 https://api.spotify.com/v1/search?type=artist&limit=10&q=9mice
   spotify: artist not found: 9mice
+  ytmusic artist Kai Angel: UCvutXEVSVVL506eBU2WzI6Q
+  ytmusic artist 9mice: UCWsRik-nITb535GxGP9T_4Q
 apple: 999 track rows collected
-deezer: 283 track rows collected
+deezer: 281 track rows collected
+ytmusic: 242 track rows collected
 
-NOT IN CATALOG: 20 songs (by title; remixes/versions under another title may show up here too)
-  2023-03-24  ММ  | Kai Angel | album: ММ | on: deezer
-  2023-05-26  AVRIL LAVIGNE  | 9mice | album: ASPHALT | on: deezer
-  2023-05-26  ДОРОГАЯ  | 9mice | album: ASPHALT | on: apple
-  2023-05-26  ИМЯ  | 9mice | album: ASPHALT | on: apple
-  2023-05-26  УМИРАЮ  | 9mice | album: ASPHALT | on: apple
-  2023-07-07  KYLIE  | Kai Angel | album: ANGEL MAY CRY | on: deezer
-  2023-12-08  ДЕВОЧКА (feat. glaive)  | 9mice | album: ORPHEUS | on: apple
-  2023-12-08  КИНО  | 9mice | album: ORPHEUS | on: apple
-  2023-12-08  МНОГО  | 9mice | album: ORPHEUS | on: apple
-  2023-12-08  РАЗРУШИТЬ  | 9mice | album: ORPHEUS | on: apple
-  2023-12-08  СУКА (feat. lifelessgarments)  | 9mice | album: ORPHEUS | on: apple
-  2023-12-08  ХОЧЕТ  | 9mice | album: ORPHEUS | on: apple
-  2024-05-17  Your Love  | 9mice | album: Your Love - Single | on: apple,deezer
-  2024-09-13  Blum - Big City Life  | 9mice & Kai Angel | album: Heavy Metal 2 | on: apple,deezer
-  2024-09-13  Fountainebleu  | 9mice & Kai Angel | album: Heavy Metal 2 | on: apple
-  2025-04-18  scream!  | Kai Angel | album: ANGEL MAY CRY 2 | on: apple,deezer
-  2025-09-05  naive  | Kai Angel | album: damage | on: apple,deezer
-  2025-10-17  ANnnnnNIHILATIONNN  | 9mice | album: 9mm | on: deezer
-  2025-12-19  Club Tainted  | Kai Angel | album: Club Tainted - Single | on: apple,deezer
-  2026-09-29  Numb  | 9mice | album: Numb | on: deezer
+NOT IN CATALOG: 14 songs (by title; closest catalog title and match score shown)
+  2023        AVRIL LAVIGNE  | 9mice | album: ASPHALT | on: deezer,ytmusic | closest in catalog: 'Насилие' (Насилие) 0.53
+  2023        KYLIE  | Kai Angel | album: ANGEL MAY CRY | on: deezer,ytmusic | closest in catalog: 'KYLIE MINOGUE' (ANGEL MAY CRY) 0.59
+  2023        ММ  | Kai Angel | album: ММ | on: deezer,ytmusic | closest in catalog: 'MMW' (CHAINSAW) 0.8
+  2023-05-26  УМИРАЮ  | 9mice | album: ASPHALT | on: apple | closest in catalog: 'YMIRAU' (ASPHALT) 0.77
+  2023-12-08  ДЕВОЧКА (feat. glaive)  | 9mice | album: ORPHEUS | on: apple | closest in catalog: 'DEVO4KA' (ORPHEUS) 0.8
+  2023-12-08  СУКА (feat. lifelessgarments)  | 9mice | album: ORPHEUS | on: apple | closest in catalog: 'sugar' (9mm) 0.67
+  2023-12-08  ХОЧЕТ  | 9mice | album: ORPHEUS | on: apple | closest in catalog: 'XO4ET' (ORPHEUS) 0.55
+  2024        Blum - Big City Life  | 9mice & Kai Angel | album: Heavy Metal 2 | on: apple,deezer,ytmusic | closest in catalog: 'humble' (9mm) 0.48
+  2024-05-17  Your Love  | 9mice | album: Your Love - Single | on: apple,deezer,ytmusic | closest in catalog: 'Netu/Love' (POEMI KOSO TAPE) 0.62
+  2025        ANnnnnNIHILATIONNN  | 9mice | album: 9mm | on: deezer,ytmusic | closest in catalog: 'i hate fashion shows' (ANGEL MAY CRY 2) 0.4
+  2025        Club Tainted  | Kai Angel | album: Club Tainted - Single | on: apple,deezer,ytmusic | closest in catalog: 'Tainted Love' (Tainted Love) 0.64
+  2025        naive  | Kai Angel | album: damage | on: apple,deezer,ytmusic | closest in catalog: 'Насилие' (Насилие) 0.67
+  2025        scream!  | Kai Angel | album: ANGEL MAY CRY 2 | on: apple,deezer,ytmusic | closest in catalog: 'Fire Alarm' (Heavy Metal 2) 0.53
+  2026        Numb  | 9mice | album: Numb | on: deezer,ytmusic | closest in catalog: 'humble' (9mm) 0.6
+
+PROBABLY THE SAME SONG UNDER ANOTHER SPELLING (not counted as missing): 6
+  Fountainebleu  ~  'Fountainebleau' (Heavy Metal 2) 0.96 | on: apple
+  ДОРОГАЯ  ~  'DOROGAYA' (ASPHALT) 1.0 | on: apple
+  ИМЯ  ~  'IMYA' (ASPHALT) 1.0 | on: apple
+  КИНО  ~  'KINO' (ORPHEUS) 1.0 | on: apple
+  МНОГО  ~  'MNOGO' (ORPHEUS) 1.0 | on: apple
+  РАЗРУШИТЬ  ~  'RAZRUSHIT' (ORPHEUS) 1.0 | on: apple
