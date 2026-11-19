@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: "20"
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - run: pip install -U "yt-dlp[default]"
+      - run: pip install -U --pre "yt-dlp[default]"
       - name: PO token server (replaces YouTube cookies when possible)
         run: |
           git clone -q --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /tmp/pot

@@ -19,6 +19,18 @@ def sh(*a):
     return subprocess.run(a, capture_output=True, text=True)
 
 
+# Типы клиента YouTube в yt-dlp: None — настройки по умолчанию
+CLIENTS = [None, "android_vr", "tv", "tv_simply", "web_embedded", "mweb", "web_safari", "web_creator", "ios", "android"]
+FMT = "bv*[height<=1080][vcodec^=avc1]+ba[acodec^=mp4a]/bv*[height<=1080]+ba/b[height<=1080]/b"
+
+
+def ytdlp(url, client, *a):
+    cmd = ["yt-dlp", "--no-playlist"]
+    if client:
+        cmd += ["--extractor-args", f"youtube:player_client={client}"]
+    return sh(*cmd, *a, url)
+
+
 def probe(path):
     r = sh("ffprobe", "-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,pix_fmt:format=duration,size", "-of", "json", path)
     try:
@@ -43,19 +55,33 @@ for vid in ids:
         continue
     url = f"https://www.youtube.com/watch?v={vid}"
     p(f"=== {vid}")
-    m = sh("yt-dlp", "--skip-download", "--no-playlist", "--print", "%(title)s\t%(uploader)s\t%(channel)s\t%(duration)s\t%(upload_date)s\t%(availability)s", url)
-    meta = (m.stdout.strip().splitlines() or [""])[0].split("\t")
-    if m.returncode != 0 or len(meta) < 6:
-        p("  metadata failed:", (m.stderr or m.stdout)[-400:].replace("\n", " | "))
+    # YouTube отвечает «Sign in to confirm you're not a bot» не на всех типах клиента одинаково: пробуем по очереди
+    # (это обычные настройки yt-dlp, ничего не подделываем) и пишем в отчёт, что сработало.
+    meta, chosen = None, None
+    for c in CLIENTS:
+        m = ytdlp(url, c, "--skip-download", "--print", "%(title)s\t%(uploader)s\t%(channel)s\t%(duration)s\t%(upload_date)s\t%(availability)s")
+        row = (m.stdout.strip().splitlines() or [""])[0].split("\t")
+        if m.returncode == 0 and len(row) >= 6:
+            meta, chosen = row, c
+            p(f"  metadata ok with client: {c or 'default'}")
+            break
+        p(f"  metadata failed with {c or 'default'}:", (m.stderr or m.stdout).strip().splitlines()[-1][:170] if (m.stderr or m.stdout).strip() else "no output")
+    if not meta:
         res[vid] = {"error": "metadata"}
         continue
     info = {"title": meta[0], "uploader": meta[1], "channel": meta[2], "duration": meta[3], "date": meta[4], "availability": meta[5]}
     p("  meta:", json.dumps(info, ensure_ascii=False))
     raw = f"/tmp/raw_{vid}.mp4"
-    d = sh("yt-dlp", "--no-playlist", "-f", "bv*[height<=1080][vcodec^=avc1]+ba[acodec^=mp4a]/bv*[height<=1080]+ba/b[height<=1080]/b",
-           "--merge-output-format", "mp4", "-o", raw, url)
-    if d.returncode != 0 or not os.path.exists(raw):
-        p("  download failed:", (d.stderr or d.stdout)[-600:].replace("\n", " | "))
+    d = None
+    for c in [chosen] + [x for x in CLIENTS if x != chosen]:
+        if os.path.exists(raw):
+            os.remove(raw)
+        d = ytdlp(url, c, "-f", FMT, "--merge-output-format", "mp4", "-o", raw)
+        if d.returncode == 0 and os.path.exists(raw):
+            p(f"  download ok with client: {c or 'default'}")
+            break
+        p(f"  download failed with {c or 'default'}:", (d.stderr or d.stdout).strip().splitlines()[-1][:170] if (d.stderr or d.stdout).strip() else "no output")
+    if d is None or d.returncode != 0 or not os.path.exists(raw):
         res[vid] = {**info, "error": "download"}
         continue
     pr = probe(raw)
