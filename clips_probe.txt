@@ -1,4 +1,22 @@
 === 2HPj9j4IuT4
-  metadata failed: ] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies | 
+  metadata failed with default: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with android_vr: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with tv: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with tv_simply: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with web_embedded: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with mweb: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with web_safari: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with web_creator: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with ios: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/w
+  metadata failed with android: ERROR: [youtube] 2HPj9j4IuT4: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/w
 === jAYvKxSx4qU
-  metadata failed: ] jAYvKxSx4qU: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies | 
+  metadata failed with default: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with android_vr: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with tv: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with tv_simply: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with web_embedded: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with mweb: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with web_safari: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with web_creator: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. This helps protect our community. Use --cookies-from-browser or --cookies for the authentication. See  
+  metadata failed with ios: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/w
+  metadata failed with android: ERROR: [youtube] jAYvKxSx4qU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/w
