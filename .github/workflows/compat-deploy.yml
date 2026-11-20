@@ -134,6 +134,12 @@ jobs:
           T=$(echo "$R" | jq -r '.token // empty')
           [ -n "$T" ] || { echo "register: $(echo "$R" | jq -c 'del(.token,.recovery)')"; exit 1; }
           curl -s $U/a/me -H "authorization: Bearer $T" | jq -e ".nick==\"$N\"" >/dev/null
+          # облачная копия: запись, чтение целиком, пустые «Входящие», удаление
+          B='{"app":"viperr-backup","v":1,"t":1,"prefs":{},"photos":{}}'
+          curl -s -X POST $U/a/backup -H "authorization: Bearer $T" -H 'content-type: application/json' -d "$(jq -nc --arg d "$B" '{d:$d,base:0,device:"smoke",info:{pl:1,fav:2}}')" | jq -e '.ok==true' >/dev/null
+          curl -s "$U/a/backup?full=1" -H "authorization: Bearer $T" | jq -e --arg d "$B" '.has==true and .d==$d and .info.fav==2' >/dev/null
+          curl -s $U/a/inbox -H "authorization: Bearer $T" | jq -e '.unread==0 and (.items|length)==0' >/dev/null
+          curl -s -X POST $U/a/backup/delete -H "authorization: Bearer $T" -H 'content-type: application/json' -d '{}' | jq -e '.ok==true' >/dev/null
           curl -s -X POST $U/a/login -H 'content-type: application/json' -d "{\"nick\":\"$N\",\"pw\":\"$PW\"}" | jq -e '.token' >/dev/null
           curl -s -X POST $U/a/delete -H "authorization: Bearer $T" -H 'content-type: application/json' -d "{\"pw\":\"$PW\"}" | jq -e '.ok==true' >/dev/null
-          echo "Сообщество: регистрация, вход и удаление работают."
+          echo "Сообщество: регистрация, вход, облачная копия, «Входящие» и удаление работают."

@@ -382,3 +382,185 @@ test("просроченные счётчики с IP и сессии вычищ
   assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE th='dead'").first()).n, 0);
   assert.ok((await db.prepare("SELECT COUNT(*) AS n FROM sessions").first()).n >= 1);
 });
+
+// ───────── Облачная копия и «Входящие» ─────────
+
+const BK = (extra = {}) => JSON.stringify({ app: "viperr-backup", v: 1, t: 1, prefs: { viperr: { fav: { s: "a" } } }, photos: {}, ...extra });
+
+test("облачная копия: загрузка, чтение, подпись, чужим недоступна, удаление", async () => {
+  const w = world();
+  const t = (await w.reg("Fan_One")).json.token;
+  const o = (await w.reg("Other_Fan")).json.token;
+  assert.equal((await w.call("GET", "/a/backup")).status, 401);
+  assert.equal((await w.call("POST", "/a/backup", { d: BK(), base: 0 })).status, 401);
+  assert.deepEqual((await w.call("GET", "/a/backup", undefined, t)).json, { has: false });
+  assert.equal((await w.call("GET", "/a/me", undefined, t)).json.backup, null);
+
+  const data = BK({ photos: { "cover1.jpg": "AAAA/BBBB==" } });
+  const up = await w.call("POST", "/a/backup", { d: data, base: 0, device: "Pixel 7\nfake line", info: { pl: 3, fav: 120, x: 9, ph: -1 } }, t);
+  assert.equal(up.status, 200);
+  assert.equal(up.json.size, new TextEncoder().encode(data).length);
+  assert.equal(up.json.device, "Pixel 7\nfake line".replace("\n", " "));
+
+  // сведения без самой копии: подпись очищена от лишнего
+  const meta = (await w.call("GET", "/a/backup", undefined, t)).json;
+  assert.equal(meta.has, true);
+  assert.equal(meta.updated, up.json.updated);
+  assert.deepEqual(meta.info, { pl: 3, fav: 120 });
+  assert.equal(meta.d, undefined);
+  // сама копия приходит байт в байт
+  const full = (await w.call("GET", "/a/backup?full=1", undefined, t)).json;
+  assert.equal(full.d, data);
+  assert.equal((await w.call("GET", "/a/me", undefined, t)).json.backup.device, "Pixel 7 fake line");
+
+  // у другого человека копии нет, и удалить чужую он не может
+  assert.deepEqual((await w.call("GET", "/a/backup", undefined, o)).json, { has: false });
+  assert.equal((await w.call("POST", "/a/backup/delete", {}, o)).status, 200);
+  assert.equal((await w.call("GET", "/a/backup", undefined, t)).json.has, true);
+
+  assert.equal((await w.call("POST", "/a/backup/delete", {}, t)).status, 200);
+  assert.deepEqual((await w.call("GET", "/a/backup", undefined, t)).json, { has: false });
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM backups").first()).n, 0);
+});
+
+test("облачная копия: свежий телефон не затирает чужую копию без подтверждения", async () => {
+  const w = world();
+  const t = (await w.reg("Fan_One")).json.token;
+  const first = (await w.call("POST", "/a/backup", { d: BK(), base: 0, device: "Old phone" }, t)).json;
+  // новый телефон ещё не видел копию (base 0): сервер просит подтвердить и сообщает, что лежит в облаке
+  const stale = await w.call("POST", "/a/backup", { d: BK({ t: 2 }), base: 0, device: "New phone" }, t);
+  assert.equal(stale.status, 409);
+  assert.equal(stale.json.error, "stale");
+  assert.equal(stale.json.device, "Old phone");
+  assert.equal(stale.json.updated, first.updated);
+  assert.equal((await w.call("GET", "/a/backup?full=1", undefined, t)).json.d, BK());
+  // с верным base (телефон опирается на последнюю копию) обновление проходит, метка времени растёт
+  const next = await w.call("POST", "/a/backup", { d: BK({ t: 3 }), base: first.updated, device: "Old phone" }, t);
+  assert.equal(next.status, 200);
+  assert.ok(next.json.updated > first.updated);
+  // устаревший base после чужой записи снова 409, а force: true записывает сознательно
+  assert.equal((await w.call("POST", "/a/backup", { d: BK({ t: 4 }), base: first.updated }, t)).status, 409);
+  assert.equal((await w.call("POST", "/a/backup", { d: BK({ t: 4 }), base: first.updated, force: true, device: "New phone" }, t)).status, 200);
+  assert.equal((await w.call("GET", "/a/backup", undefined, t)).json.device, "New phone");
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM backups").first()).n, 1);
+});
+
+test("облачная копия: плохие данные, слишком большая (считаются байты), лимиты", async () => {
+  const w = world();
+  const t = (await w.reg("Fan_One")).json.token;
+  for (const bad of [undefined, 5, "short", "x".repeat(40), JSON.stringify({ app: "other", prefs: {} }), JSON.stringify({ app: "viperr-backup" }), JSON.stringify({ app: "viperr-backup", prefs: 5 }), "[1,2,3,4,5,6,7,8,9,10,11,12,13,14]"]) {
+    const r = await w.call("POST", "/a/backup", { d: bad, base: 0 }, t);
+    assert.equal(r.status, 400, String(bad).slice(0, 30));
+  }
+  assert.equal((await w.call("POST", "/a/backup", "nope", t)).status, 400);
+  // 1,6 МБ в байтах, хотя символов вдвое меньше: русские буквы занимают по два байта
+  assert.equal((await w.call("POST", "/a/backup", { d: BK({ photos: { a: "я".repeat(800000) } }), base: 0 }, t)).status, 413);
+  assert.equal((await w.call("POST", "/a/backup", { d: BK({ photos: { a: "x".repeat(1500000) } }), base: 0 }, t)).status, 413);
+  assert.equal((await w.call("POST", "/a/backup", { d: BK({ photos: { a: "x".repeat(1400000) } }), base: 0 }, t)).status, 200);
+  assert.equal((await w.call("GET", "/a/backup?full=1", undefined, t)).json.d.length > 1400000, true);
+  // не больше 30 записей в сутки
+  let last;
+  for (let i = 0; i < 40; i++) last = await w.call("POST", "/a/backup", { d: BK({ t: i }), base: 0, force: true }, t);
+  assert.equal(last.status, 429);
+  assert.equal(last.json.error, "limit");
+  // скачивать целиком можно не чаще 20 раз в час
+  let r;
+  for (let i = 0; i < 22; i++) r = await w.call("GET", "/a/backup?full=1", undefined, t);
+  assert.equal(r.status, 429);
+});
+
+test("облачная копия: общий предел места на сервере и удаление вместе с аккаунтом", async () => {
+  const w = world();
+  const a = (await w.reg("Fan_One")).json.token;
+  const b = (await w.reg("Other_Fan")).json.token;
+  // условно занято почти всё место: новая копия не принимается, а замена уже существующей проходит
+  await w.env.DB.prepare("INSERT INTO backups(user_id,data,size,updated) VALUES(99,'{}',2499999990,1)").run();
+  const r = await w.call("POST", "/a/backup", { d: BK(), base: 0 }, a);
+  assert.equal(r.status, 429);
+  assert.equal(r.json.error, "cap");
+  await w.env.DB.prepare("DELETE FROM backups WHERE user_id=99").run();
+  assert.equal((await w.call("POST", "/a/backup", { d: BK(), base: 0 }, a)).status, 200);
+  assert.equal((await w.call("POST", "/a/backup", { d: BK(), base: 0 }, b)).status, 200);
+  // удаление аккаунта убирает его копию и «Входящие», чужие остаются
+  await w.env.DB.prepare("INSERT INTO inbox(user_id,kind,created) VALUES(1,'approved',1),(2,'approved',1)").run();
+  assert.equal((await w.call("POST", "/a/delete", { pw: dk("secret123", "Fan_One") }, a)).status, 200);
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM backups WHERE user_id=1").first()).n, 0);
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM inbox WHERE user_id=1").first()).n, 0);
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM backups WHERE user_id=2").first()).n, 1);
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM inbox WHERE user_id=2").first()).n, 1);
+});
+
+test("входящие: решения модератора доходят до автора, прочитанное отмечается, чужие записи недоступны", async () => {
+  const w = world();
+  const t = (await w.reg("Fan_One")).json.token;
+  const o = (await w.reg("Other_Fan")).json.token;
+  await w.call("POST", "/s", SUG({ text: "First note, to be approved as it is." }), t); // #1
+  await w.call("POST", "/s", SUG({ k: "rel-2:3", tt: "Song Two", ta: "Artist Two", text: "Second note that the moderator will fix." }), t); // #2
+  await w.call("POST", "/s", SUG({ k: "rel-3:1", text: "Third note that cannot be verified at all." }), t); // #3
+  assert.deepEqual((await w.call("GET", "/a/inbox", undefined, t)).json, { unread: 0, items: [] });
+  const tap = (data) => w.hook({ callback_query: { id: "q" + w.calls.length, from: { id: ADMIN }, data, message: { chat: { id: ADMIN }, message_id: 50 } } });
+  await tap("a:1");
+  await w.hook({ message: { from: { id: ADMIN }, chat: { id: ADMIN }, text: "Second note, fixed by the moderator.", reply_to_message: { message_id: 12, text: "📝 #2 · Fan_One\n🎵 Artist — Song rel-2:3" } } });
+  await w.hook({ message: { from: { id: ADMIN }, chat: { id: ADMIN }, text: "/no not verifiable", reply_to_message: { message_id: 13, text: "📝 #3 · Fan_One\n🎵 x" } } });
+  await tap("d:1"); await tap("y:1"); // убрана уже опубликованная заметка
+
+  const box = (await w.call("GET", "/a/inbox", undefined, t)).json;
+  assert.equal(box.unread, 4);
+  assert.deepEqual(box.items.map(i => i.kind), ["removed", "rejected", "edited", "approved"]);
+  assert.deepEqual(box.items.map(i => i.ref), [1, 3, 2, 1]);
+  assert.equal(box.items[1].text, "not verifiable");
+  assert.equal(box.items[2].text, "Second note, fixed by the moderator.");
+  assert.equal(box.items[2].tt, "Song Two");
+  assert.equal(box.items[2].ta, "Artist Two");
+  assert.equal(box.items[3].text, "");
+  assert.equal(box.items[0].seen, false);
+  assert.equal((await w.call("GET", "/a/me", undefined, t)).json.unread, 4);
+
+  // чужой ящик пуст, и отметить чужое прочитанным нельзя
+  assert.deepEqual((await w.call("GET", "/a/inbox", undefined, o)).json, { unread: 0, items: [] });
+  assert.equal((await w.call("POST", "/a/inbox/seen", {}, o)).status, 200);
+  assert.equal((await w.call("GET", "/a/inbox", undefined, t)).json.unread, 4);
+
+  // «до номера»: два старых прочитаны, два новых нет
+  const upTo = box.items[2].id;
+  assert.equal((await w.call("POST", "/a/inbox/seen", { upTo }, t)).status, 200);
+  const half = (await w.call("GET", "/a/inbox", undefined, t)).json;
+  assert.equal(half.unread, 2);
+  assert.deepEqual(half.items.map(i => i.seen), [false, false, true, true]);
+  // без номера прочитано всё
+  await w.call("POST", "/a/inbox/seen", {}, t);
+  assert.equal((await w.call("GET", "/a/me", undefined, t)).json.unread, 0);
+  assert.equal((await w.call("GET", "/a/inbox")).status, 401);
+});
+
+test("входящие: хранятся последние 100, у удалённого автора записей нет и ошибок тоже", async () => {
+  const w = world();
+  const t = (await w.reg("Fan_One")).json.token;
+  const ins = w.env.DB.prepare("INSERT INTO inbox(user_id,kind,ref,created) VALUES(1,'approved',?,1)");
+  for (let i = 0; i < 105; i++) await ins.bind(1000 + i).run();
+  await w.call("POST", "/s", SUG({ text: "A note that will push the old ones out." }), t); // #1
+  await w.hook({ callback_query: { id: "c1", from: { id: ADMIN }, data: "a:1", message: { chat: { id: ADMIN }, message_id: 11 } } });
+  const box = (await w.call("GET", "/a/inbox", undefined, t)).json;
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM inbox WHERE user_id=1").first()).n, 100);
+  assert.equal(box.items.length, 50);
+  assert.equal(box.items[0].ref, 1);
+
+  // автор удалил аккаунт, а заметка осталась без ника: модератор убирает её, ничего не падает, нового ящика не появляется
+  assert.equal((await w.call("POST", "/a/delete", { pw: dk("secret123", "Fan_One") }, t)).status, 200);
+  await w.hook({ callback_query: { id: "c2", from: { id: ADMIN }, data: "y:1", message: { chat: { id: ADMIN }, message_id: 11 } } });
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM suggestions WHERE id=1").first()).n, 0);
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM inbox").first()).n, 0);
+});
+
+test("Telegram: /stats и /user показывают облачные копии", async () => {
+  const w = world();
+  const t = (await w.reg("Fan_One")).json.token;
+  await w.call("POST", "/a/backup", { d: BK({ photos: { a: "x".repeat(2048) } }), base: 0, device: "Pixel" }, t);
+  await w.hook({ message: { from: { id: ADMIN }, chat: { id: ADMIN }, text: "/stats" } });
+  assert.match(w.calls.at(-1).body.text, /Cloud backups: 1 \(0\.0 MB of 2384 MB\)/);
+  await w.hook({ message: { from: { id: ADMIN }, chat: { id: ADMIN }, text: "/user fan_one" } });
+  assert.match(w.calls.at(-1).body.text, /Cloud backup: \d+ KB, \d{4}-\d{2}-\d{2}/);
+  await w.call("POST", "/a/backup/delete", {}, t);
+  await w.hook({ message: { from: { id: ADMIN }, chat: { id: ADMIN }, text: "/user fan_one" } });
+  assert.match(w.calls.at(-1).body.text, /Cloud backup: none/);
+});

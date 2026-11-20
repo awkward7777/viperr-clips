@@ -1,5 +1,6 @@
 // Viperr · Сообщество: аккаунты (ник + пароль + код восстановления), предложения к «Истории трека»,
 // проверка в Telegram и «заметки фанатов» (overlay), которые приложение накладывает на stories.json.
+// К аккаунту относятся ещё облачная копия библиотеки (/a/backup) и «Входящие» автора (/a/inbox): решения модератора по его заметкам.
 //
 // Пароль до сервера не доходит: телефон считает PBKDF2 и присылает 64 hex-символа (pw). Сервер хранит HMAC(pepper, pw),
 // pepper создаётся при первом обращении и лежит в таблице meta. Токен сессии хранится только на телефоне, в базе его SHA-256.
@@ -103,6 +104,106 @@ function reserved(lc) {
 }
 const userJson = (u) => ({ id: u.id, nick: u.nick, role: u.role });
 
+// ───────── Входящие: что стало с вашими заметками ─────────
+
+const INBOX_KEEP = 100;
+
+/** Кладёт запись во «Входящие» автора. Если автора уже нет (аккаунт удалён), молча ничего не делает. Хранит последние INBOX_KEEP. */
+async function addInbox(env, uid, kind, s, text = "") {
+  if (!uid) return;
+  try {
+    await env.DB.prepare("INSERT INTO inbox(user_id,kind,ref,k,tt,ta,text,created) VALUES(?,?,?,?,?,?,?,?)")
+      .bind(uid, kind, s.id || 0, s.k || "", s.tt || "", s.ta || "", clean(text, 400), now()).run();
+    await env.DB.prepare("DELETE FROM inbox WHERE user_id=? AND id NOT IN (SELECT id FROM inbox WHERE user_id=? ORDER BY id DESC LIMIT ?)")
+      .bind(uid, uid, INBOX_KEEP).run();
+  } catch { /* «Входящие» второстепенны: из-за них решение модератора не должно срываться */ }
+}
+
+async function inbox(env, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const rows = (await env.DB.prepare("SELECT id,kind,ref,k,tt,ta,text,created,seen FROM inbox WHERE user_id=? ORDER BY id DESC LIMIT 50").bind(a.id).all()).results || [];
+  const n = (await env.DB.prepare("SELECT COUNT(*) AS n FROM inbox WHERE user_id=? AND seen=0").bind(a.id).first())?.n || 0;
+  return J({
+    unread: n,
+    items: rows.map(r => ({ id: r.id, kind: r.kind, ref: r.ref, k: r.k, tt: r.tt, ta: r.ta, text: r.text, at: r.created, seen: !!r.seen }))
+  });
+}
+
+/** Отмечает прочитанным всё до номера upTo (без него: всё). */
+async function inboxSeen(req, env, a) {
+  const b = (await body(req)) || {};
+  const up = Number.isSafeInteger(b.upTo) ? b.upTo : Number.MAX_SAFE_INTEGER;
+  await env.DB.prepare("UPDATE inbox SET seen=1 WHERE user_id=? AND seen=0 AND id<=?").bind(a.id, up).run();
+  return J({ ok: true });
+}
+
+// ───────── Облачная копия библиотеки ─────────
+
+const BACKUP_MAX = 1_500_000;           // байт; строка в D1 не должна быть больше 2 МБ
+const BACKUP_POOL = 2_500_000_000;      // всего на сервере; когда место заканчивается, новые копии не принимаются
+const INFO_KEYS = ["pl", "fav", "ph"];  // сколько плейлистов, лайков и своих обложек внутри
+
+/** Только небольшие целые под известными именами: это подпись к копии в окне «Восстановить», а не данные. */
+function cleanInfo(v) {
+  const o = {};
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    for (const k of INFO_KEYS) {
+      const n = Number(v[k]);
+      if (Number.isFinite(n) && n >= 0) o[k] = Math.min(Math.floor(n), 1000000);
+    }
+  }
+  return o;
+}
+const parseInfo = (s) => { try { return cleanInfo(JSON.parse(s)); } catch { return {}; } };
+const backupMeta = (r) => ({ updated: r.updated, size: r.size, device: r.device, info: parseInfo(r.info) });
+
+/** Сведения о копии; с full=1 ещё и сама копия (поле d). */
+async function getBackup(env, a, full) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  if (full && await hit(env, "bkget:" + a.id, 20, 3600)) return J({ error: "rate" }, 429);
+  const r = await env.DB.prepare("SELECT " + (full ? "data," : "") + "size,info,device,updated FROM backups WHERE user_id=?").bind(a.id).first();
+  if (!r) return J({ has: false });
+  return J({ has: true, ...backupMeta(r), ...(full ? { d: r.data } : {}) });
+}
+
+/**
+ * Сохраняет копию. base — «updated» той копии, на которую телефон опирался (0: телефон копию ещё не видел).
+ * Если в облаке уже лежит другая копия, а force не передан, отвечаем 409 stale: приложение спросит человека,
+ * чтобы с нового телефона пустая библиотека случайно не затёрла настоящую.
+ */
+async function putBackup(req, env, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const b = await body(req, 4 * BACKUP_MAX); if (!b) return J({ error: "json" }, 400);
+  const d = b.d;
+  if (typeof d !== "string" || d.length < 20) return J({ error: "bad" }, 400);
+  const size = enc.encode(d).length;
+  if (size > BACKUP_MAX) return J({ error: "big" }, 413);
+  let o; try { o = JSON.parse(d); } catch { return J({ error: "bad" }, 400); }
+  if (!o || typeof o !== "object" || o.app !== "viperr-backup" || !o.prefs || typeof o.prefs !== "object") return J({ error: "bad" }, 400);
+  const day = Math.floor(now() / DAY);
+  if (await hit(env, `bk:${a.id}:${day}`, 30, DAY)) return J({ error: "limit" }, 429);
+  const cur = await env.DB.prepare("SELECT updated FROM backups WHERE user_id=?").bind(a.id).first();
+  if (cur && Number(b.base) !== cur.updated && b.force !== true) {
+    const c = await env.DB.prepare("SELECT size,info,device,updated FROM backups WHERE user_id=?").bind(a.id).first();
+    return J({ error: "stale", ...backupMeta(c) }, 409);
+  }
+  if (!cur) {
+    if (await hit(env, "bk:new:" + day, 300, DAY)) return J({ error: "cap" }, 429);
+    const used = (await env.DB.prepare("SELECT SUM(size) AS s FROM backups").first())?.s || 0;
+    if (used + size > BACKUP_POOL) return J({ error: "cap" }, 429);
+  }
+  const t = Math.max(Date.now(), (cur?.updated || 0) + 1);
+  const device = clean(b.device, 40).replace(/\n/g, " ");
+  await env.DB.prepare("INSERT OR REPLACE INTO backups(user_id,data,size,info,device,updated) VALUES(?,?,?,?,?,?)")
+    .bind(a.id, d, size, JSON.stringify(cleanInfo(b.info)), device, t).run();
+  return J({ ok: true, updated: t, size, device });
+}
+
+async function delBackup(env, a) {
+  await env.DB.prepare("DELETE FROM backups WHERE user_id=?").bind(a.id).run();
+  return J({ ok: true });
+}
+
 async function newSession(env, uid) {
   const tok = b64url(crypto.getRandomValues(new Uint8Array(32)));
   const t = now();
@@ -202,7 +303,12 @@ async function me(env, a) {
   const c = await env.DB.prepare(
     "SELECT SUM(status='pending') AS p, SUM(status='approved') AS a, SUM(status='rejected') AS r FROM suggestions WHERE user_id=?"
   ).bind(a.id).first();
-  return J({ ...userJson(a), created: a.created, pending: c?.p || 0, approved: c?.a || 0, rejected: c?.r || 0 });
+  const un = await env.DB.prepare("SELECT COUNT(*) AS n FROM inbox WHERE user_id=? AND seen=0").bind(a.id).first();
+  const bk = await env.DB.prepare("SELECT size,info,device,updated FROM backups WHERE user_id=?").bind(a.id).first();
+  return J({
+    ...userJson(a), created: a.created, pending: c?.p || 0, approved: c?.a || 0, rejected: c?.r || 0,
+    unread: un?.n || 0, backup: bk ? backupMeta(bk) : null
+  });
 }
 
 async function verifyPw(env, uid, pw) {
@@ -229,6 +335,8 @@ async function deleteAccount(req, env, a) {
   const hadApproved = await env.DB.prepare("SELECT 1 AS x FROM suggestions WHERE user_id=? AND status='approved' LIMIT 1").bind(a.id).first();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(a.id),
+    env.DB.prepare("DELETE FROM backups WHERE user_id=?").bind(a.id),
+    env.DB.prepare("DELETE FROM inbox WHERE user_id=?").bind(a.id),
     env.DB.prepare("DELETE FROM suggestions WHERE user_id=? AND status<>'approved'").bind(a.id),
     env.DB.prepare("UPDATE suggestions SET user_id=NULL, nick='' WHERE user_id=?").bind(a.id),
     env.DB.prepare("DELETE FROM users WHERE id=?").bind(a.id)
@@ -354,6 +462,9 @@ async function decide(env, id, status, extra = {}) {
   const fin = extra.final ?? "", note = extra.note ?? "";
   await env.DB.prepare("UPDATE suggestions SET status=?, final_text=?, note=?, decided=? WHERE id=?").bind(status, fin, note, now(), id).run();
   if (status === "approved") await rebuildOverlay(env);
+  // Автор узнаёт о решении во «Входящих»: «опубликовано», «опубликовано с правкой» (с текстом модератора) или «отклонено» (с причиной)
+  if (status === "approved") await addInbox(env, s.user_id, fin && fin !== s.text ? "edited" : "approved", s, fin);
+  else await addInbox(env, s.user_id, "rejected", s, note);
   return { s: { ...s, status, final_text: fin, note } };
 }
 
@@ -366,6 +477,7 @@ async function removeApproved(env, id) {
   if (s.status !== "approved") return { s, unpublished: true };
   await env.DB.prepare("DELETE FROM suggestions WHERE id=? AND status='approved'").bind(id).run();
   await rebuildOverlay(env);
+  await addInbox(env, s.user_id, "removed", s);
   return { s: { ...s, status: "deleted" } };
 }
 
@@ -445,7 +557,8 @@ async function handleMessage(env, m) {
     case "/stats": {
       const c = await env.DB.prepare("SELECT SUM(status='pending') AS p, SUM(status='approved') AS a, SUM(status='rejected') AS r FROM suggestions").first();
       const u = await env.DB.prepare("SELECT COUNT(*) AS n, SUM(banned) AS b FROM users").first();
-      return say(`Users: ${u?.n || 0} (banned ${u?.b || 0})\nPending: ${c?.p || 0} · Approved: ${c?.a || 0} · Rejected: ${c?.r || 0}`);
+      const bk = await env.DB.prepare("SELECT COUNT(*) AS n, SUM(size) AS s FROM backups").first();
+      return say(`Users: ${u?.n || 0} (banned ${u?.b || 0})\nPending: ${c?.p || 0} · Approved: ${c?.a || 0} · Rejected: ${c?.r || 0}\nCloud backups: ${bk?.n || 0} (${((bk?.s || 0) / 1048576).toFixed(1)} MB of ${(BACKUP_POOL / 1048576).toFixed(0)} MB)`);
     }
     case "/pending": {
       const rows = (await env.DB.prepare("SELECT * FROM suggestions WHERE status='pending' ORDER BY id ASC LIMIT 10").all()).results || [];
@@ -468,7 +581,8 @@ async function handleMessage(env, m) {
       const u = await findUser();
       if (!u) return say("No such nickname.");
       const c = await env.DB.prepare("SELECT SUM(status='pending') AS p, SUM(status='approved') AS a, SUM(status='rejected') AS r FROM suggestions WHERE user_id=?").bind(u.id).first();
-      return say(`${esc(u.nick)} (#${u.id})${u.banned ? " · banned" : ""}\nJoined: ${new Date(u.created * 1000).toISOString().slice(0, 10)}\nPending ${c?.p || 0} · Approved ${c?.a || 0} · Rejected ${c?.r || 0}`);
+      const bk = await env.DB.prepare("SELECT size, updated FROM backups WHERE user_id=?").bind(u.id).first();
+      return say(`${esc(u.nick)} (#${u.id})${u.banned ? " · banned" : ""}\nJoined: ${new Date(u.created * 1000).toISOString().slice(0, 10)}\nPending ${c?.p || 0} · Approved ${c?.a || 0} · Rejected ${c?.r || 0}\nCloud backup: ${bk ? Math.ceil(bk.size / 1024) + " KB, " + new Date(bk.updated).toISOString().slice(0, 10) : "none"}`);
     }
     case "/ban": case "/unban": {
       const u = await findUser();
@@ -515,6 +629,11 @@ export async function community(req, env, ctx) {
     if (p === "/a/logout" && m === "POST") { await env.DB.prepare("DELETE FROM sessions WHERE th=?").bind(a.th).run(); return J({ ok: true }); }
     if (p === "/a/password" && m === "POST") return await changePassword(req, env, a);
     if (p === "/a/delete" && m === "POST") return await deleteAccount(req, env, a);
+    if (p === "/a/backup" && m === "GET") return await getBackup(env, a, u.searchParams.get("full") === "1");
+    if (p === "/a/backup" && m === "POST") return await putBackup(req, env, a);
+    if (p === "/a/backup/delete" && m === "POST") return await delBackup(env, a);
+    if (p === "/a/inbox" && m === "GET") return await inbox(env, a);
+    if (p === "/a/inbox/seen" && m === "POST") return a.banned ? J({ error: "banned" }, 403) : await inboxSeen(req, env, a);
     if (p === "/s" && m === "POST") return await suggest(req, env, ip, ctx, a);
     if (p === "/s/mine" && m === "GET") return await mine(env, a);
     return J({ error: "none" }, 404);
