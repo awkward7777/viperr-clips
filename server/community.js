@@ -1,6 +1,7 @@
 // Viperr · Сообщество: аккаунты (ник + пароль + код восстановления), предложения к «Истории трека»,
 // проверка в Telegram и «заметки фанатов» (overlay), которые приложение накладывает на stories.json.
 // К аккаунту относятся ещё облачная копия библиотеки (/a/backup) и «Входящие» автора (/a/inbox): решения модератора по его заметкам.
+// Доверенные авторы (после трёх одобренных заметок новые без ссылок выходят сразу), голоса «Полезно» (/a/vote) и жалобы на заметки (/a/report).
 //
 // Пароль до сервера не доходит: телефон считает PBKDF2 и присылает 64 hex-символа (pw). Сервер хранит HMAC(pepper, pw),
 // pepper создаётся при первом обращении и лежит в таблице meta. Токен сессии хранится только на телефоне, в базе его SHA-256.
@@ -305,9 +306,10 @@ async function me(env, a) {
   ).bind(a.id).first();
   const un = await env.DB.prepare("SELECT COUNT(*) AS n FROM inbox WHERE user_id=? AND seen=0").bind(a.id).first();
   const bk = await env.DB.prepare("SELECT size,info,device,updated FROM backups WHERE user_id=?").bind(a.id).first();
+  const tr = await trustOf(env, a.id, c?.a || 0);
   return J({
     ...userJson(a), created: a.created, pending: c?.p || 0, approved: c?.a || 0, rejected: c?.r || 0,
-    unread: un?.n || 0, backup: bk ? backupMeta(bk) : null
+    unread: un?.n || 0, backup: bk ? backupMeta(bk) : null, trust: { state: tr.state, have: tr.have, need: tr.need }
   });
 }
 
@@ -333,15 +335,138 @@ async function deleteAccount(req, env, a) {
   if (await hit(env, "pwchg:" + a.id, 10, 3600)) return J({ error: "rate" }, 429);
   if (!(await verifyPw(env, a.id, b.pw))) return J({ error: "creds" }, 401);
   const hadApproved = await env.DB.prepare("SELECT 1 AS x FROM suggestions WHERE user_id=? AND status='approved' LIMIT 1").bind(a.id).first();
+  const hadVotes = await env.DB.prepare("SELECT 1 AS x FROM votes WHERE user_id=? LIMIT 1").bind(a.id).first();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(a.id),
     env.DB.prepare("DELETE FROM backups WHERE user_id=?").bind(a.id),
     env.DB.prepare("DELETE FROM inbox WHERE user_id=?").bind(a.id),
+    env.DB.prepare("DELETE FROM reports WHERE user_id=?").bind(a.id),
+    env.DB.prepare("DELETE FROM trust WHERE user_id=?").bind(a.id),
+    env.DB.prepare("DELETE FROM votes WHERE user_id=?").bind(a.id),
+    // счётчики голосов пересобираются целиком (редкая операция), чтобы они сошлись с оставшимися голосами
+    ...(hadVotes ? [env.DB.prepare("DELETE FROM vote_n"), env.DB.prepare("INSERT INTO vote_n(sid,n) SELECT sid, COUNT(*) FROM votes GROUP BY sid")] : []),
     env.DB.prepare("DELETE FROM suggestions WHERE user_id=? AND status<>'approved'").bind(a.id),
     env.DB.prepare("UPDATE suggestions SET user_id=NULL, nick='' WHERE user_id=?").bind(a.id),
     env.DB.prepare("DELETE FROM users WHERE id=?").bind(a.id)
   ]);
   if (hadApproved) await rebuildOverlay(env);
+  return J({ ok: true });
+}
+
+// ───────── Доверие, голоса «Полезно» и жалобы ─────────
+
+const TRUST_AFTER = 3;    // сколько одобренных заметок делают автора доверенным: его новые заметки без ссылок выходят сразу
+const LIVE_PER_DAY = 5;   // сколько таких заметок в сутки выходит без проверки, остальные ждут модератора
+const HIDE_AT = 3;        // столько разных жалоб прячут заметку из приложения, пока модератор не решит
+const WHY = ["spam", "offensive", "wrong", "other"];
+const MILESTONES = [5, 10, 25, 50, 100];   // на скольких голосах автору приходит запись во «Входящие»
+/** Заметку со ссылкой всегда сначала смотрит модератор, даже у доверенного автора. */
+const LINK_RE = /https?:\/\/|www\.|t\.me\/|\b[\w-]+\.(?:com|ru|net|org|io|me|gg|ly|co|app|dev|xyz|top|club|link|site|online)\b/i;
+
+const approvedCount = async (env, uid) =>
+  (await env.DB.prepare("SELECT COUNT(*) AS n FROM suggestions WHERE user_id=? AND status='approved'").bind(uid).first())?.n || 0;
+
+/** Доверие автора: yes, paused (модератор приостановил) или no (пока нет). Запись в trust есть, только если модератор решил сам
+ *  (1 — доверен, -1 — приостановлено), иначе всё считается по числу одобренных заметок. */
+async function trustOf(env, uid, have) {
+  const row = await env.DB.prepare("SELECT level FROM trust WHERE user_id=?").bind(uid).first();
+  const n = have ?? await approvedCount(env, uid);
+  const lv = row ? row.level : 0;
+  return { state: lv < 0 ? "paused" : lv > 0 || n >= TRUST_AFTER ? "yes" : "no", have: n, need: TRUST_AFTER, manual: lv > 0 };
+}
+
+/** Модератор включает (1) или приостанавливает (-1) доверие вручную; автор узнаёт об этом во «Входящих». */
+async function setTrust(env, uid, level) {
+  await env.DB.prepare("INSERT OR REPLACE INTO trust(user_id,level,since) VALUES(?,?,?)").bind(uid, level, now()).run();
+  await addInbox(env, uid, level > 0 ? "trusted" : "paused", { id: 0 });
+}
+
+/** После одобрения: третья одобренная заметка (при нетронутом модератором доверии) делает автора доверенным. */
+async function trustCheck(env, uid) {
+  if (!uid) return false;
+  const t = await trustOf(env, uid);
+  if (t.state !== "yes" || t.manual || t.have !== TRUST_AFTER) return false;
+  await addInbox(env, uid, "trusted", { id: 0 });
+  return true;
+}
+
+/** Пересчитывает готовый счётчик голосов одной заметки: одной пачкой, чтобы он не разошёлся с самими голосами. */
+async function recount(env, sid) {
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM vote_n WHERE sid=?").bind(sid),
+    env.DB.prepare("INSERT INTO vote_n(sid,n) SELECT sid, COUNT(*) FROM votes WHERE sid=? GROUP BY sid").bind(sid)
+  ]);
+}
+
+/** Номер заметки из тела запроса или 0, если он не годится. */
+const noteId = (v) => { const n = Number(v); return Number.isSafeInteger(n) && n > 0 ? n : 0; };
+
+/** «Полезно»: один голос на аккаунт и заметку, за свою заметку голосовать нельзя; on:false снимает голос. */
+async function vote(req, env, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const b = await body(req); if (!b) return J({ error: "json" }, 400);
+  const id = noteId(b.id);
+  if (!id) return J({ error: "bad" }, 400);
+  if (await hit(env, "vote:" + a.id, 120, 3600)) return J({ error: "rate" }, 429);
+  const s = await env.DB.prepare("SELECT id,user_id,k,tt,ta FROM suggestions WHERE id=? AND status='approved' AND id NOT IN (SELECT sid FROM hidden)").bind(id).first();
+  if (!s) return J({ error: "gone" }, 404);
+  if (s.user_id === a.id) return J({ error: "own" }, 403);
+  const on = b.on !== false;
+  const r = on
+    ? await env.DB.prepare("INSERT OR IGNORE INTO votes(sid,user_id,created) VALUES(?,?,?)").bind(id, a.id, now()).run()
+    : await env.DB.prepare("DELETE FROM votes WHERE sid=? AND user_id=?").bind(id, a.id).run();
+  const changed = !!r.meta.changes;
+  if (changed) await recount(env, id);
+  const n = (await env.DB.prepare("SELECT n FROM vote_n WHERE sid=?").bind(id).first())?.n || 0;
+  // Автору приходит запись, когда голосов становится 5, 10, 25, 50 и 100 (повторно на тех же числах, если голос сняли и поставили, не приходит)
+  if (on && changed && s.user_id && MILESTONES.includes(n)
+    && !(await env.DB.prepare("SELECT 1 AS x FROM inbox WHERE user_id=? AND kind='helpful' AND ref=? AND text=?").bind(s.user_id, id, String(n)).first())) {
+    await addInbox(env, s.user_id, "helpful", s, String(n));
+  }
+  return J({ ok: true, id, n, mine: on });
+}
+
+/** За какие заметки голосовал этот аккаунт (последние 1000). */
+async function myVotes(env, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const rows = (await env.DB.prepare("SELECT sid FROM votes WHERE user_id=? ORDER BY created DESC LIMIT 1000").bind(a.id).all()).results || [];
+  return J({ ids: rows.map(r => r.sid) });
+}
+
+/** Готовые счётчики голосов: {номер заметки: сколько голосов}. Только заметки, у которых они есть. */
+async function voteMap(env) {
+  const rows = (await env.DB.prepare("SELECT sid,n FROM vote_n WHERE n>0").all()).results || [];
+  const o = {};
+  for (const r of rows) o[r.sid] = r.n;
+  return o;
+}
+
+/** Жалоба на опубликованную заметку: одна на аккаунт и заметку. Модератору приходит карточка (на первую жалобу
+ *  и на ту, после которой заметка скрыта), после HIDE_AT разных жалоб заметка пропадает из приложения до его решения. */
+async function report(req, env, ip, ctx, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const b = await body(req); if (!b) return J({ error: "json" }, 400);
+  const id = noteId(b.id), why = WHY.includes(b.why) ? b.why : "";
+  if (!id || !why) return J({ error: "bad" }, 400);
+  const day = Math.floor(now() / DAY);
+  if (await hit(env, `rep:u:${a.id}:${day}`, 10, DAY)) return J({ error: "limit" }, 429);
+  if (await hit(env, `rep:ip:${ip}:${day}`, 40, DAY)) return J({ error: "rate" }, 429);
+  if (await hit(env, "rep:all:" + day, 500, DAY)) return J({ error: "cap" }, 429);
+  const s = await env.DB.prepare("SELECT * FROM suggestions WHERE id=? AND status='approved'").bind(id).first();
+  if (!s) return J({ error: "gone" }, 404);
+  if (s.user_id === a.id) return J({ error: "own" }, 403);
+  const r = await env.DB.prepare("INSERT OR IGNORE INTO reports(sid,user_id,why,created) VALUES(?,?,?,?)").bind(id, a.id, why, now()).run();
+  if (!r.meta.changes) return J({ ok: true, dup: true });
+  const n = (await env.DB.prepare("SELECT COUNT(*) AS n FROM reports WHERE sid=? AND resolved=0").bind(id).first())?.n || 0;
+  let hide = false;
+  if (n >= HIDE_AT) {
+    const h = await env.DB.prepare("INSERT OR IGNORE INTO hidden(sid,at) VALUES(?,?)").bind(id, now()).run();
+    if (h.meta.changes) { await rebuildOverlay(env); hide = true; }
+  }
+  if (n === 1 || hide) {
+    const job = notifyReport(env, s, hide);
+    if (ctx && ctx.waitUntil) ctx.waitUntil(job); else await job;
+  }
   return J({ ok: true });
 }
 
@@ -362,25 +487,30 @@ async function suggest(req, env, ip, ctx, a) {
   const fresh = now() - a.created < 7 * DAY;
   if (await hit(env, `sug:u:${a.id}:${day}`, fresh ? 3 : 10, DAY)) return J({ error: "limit" }, 429);
   if (await hit(env, "sug:ip:" + ip + ":" + day, 40, DAY)) return J({ error: "rate" }, 429);
-  if (await env.DB.prepare("SELECT 1 AS x FROM suggestions WHERE user_id=? AND k=? AND text=? AND status='pending'").bind(a.id, k, text).first()) {
+  if (await env.DB.prepare("SELECT 1 AS x FROM suggestions WHERE user_id=? AND k=? AND text=? AND status IN ('pending','approved')").bind(a.id, k, text).first()) {
     return J({ error: "dup" }, 409);
   }
-  const r = await env.DB.prepare("INSERT INTO suggestions(user_id,nick,k,tt,ta,section,text,src,created) VALUES(?,?,?,?,?,?,?,?,?)")
-    .bind(a.id, a.nick, k, tt, ta, sec, text, src, now()).run();
+  // Доверенный автор: заметка без ссылок выходит сразу (не больше LIVE_PER_DAY в сутки), всё остальное ждёт модератора
+  const live = !src && !LINK_RE.test(text) && (await trustOf(env, a.id)).state === "yes" && !(await hit(env, `live:${a.id}:${day}`, LIVE_PER_DAY, DAY));
+  const t = now();
+  const r = await env.DB.prepare("INSERT INTO suggestions(user_id,nick,k,tt,ta,section,text,src,created,status,decided) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
+    .bind(a.id, a.nick, k, tt, ta, sec, text, src, t, live ? "approved" : "pending", live ? t : 0).run();
   const id = r.meta.last_row_id;
+  if (live) await rebuildOverlay(env);
   const row = await env.DB.prepare("SELECT * FROM suggestions WHERE id=?").bind(id).first();
-  if (ctx && ctx.waitUntil) ctx.waitUntil(notify(env, row)); else await notify(env, row);
-  return J({ ok: true, id, status: "pending" });
+  if (ctx && ctx.waitUntil) ctx.waitUntil(notify(env, row, { live })); else await notify(env, row, { live });
+  return J({ ok: true, id, status: live ? "approved" : "pending" });
 }
 
 async function mine(env, a) {
   const rows = (await env.DB.prepare(
-    "SELECT id,k,tt,ta,section,text,src,status,final_text,note,created,decided FROM suggestions WHERE user_id=? ORDER BY id DESC LIMIT 50"
+    "SELECT s.id,s.k,s.tt,s.ta,s.section,s.text,s.src,s.status,s.final_text,s.note,s.created,s.decided,(h.sid IS NOT NULL) AS hid,COALESCE(v.n,0) AS votes "
+    + "FROM suggestions s LEFT JOIN hidden h ON h.sid=s.id LEFT JOIN vote_n v ON v.sid=s.id WHERE s.user_id=? ORDER BY s.id DESC LIMIT 50"
   ).bind(a.id).all()).results || [];
   return J({
     items: rows.map(r => ({
       id: r.id, k: r.k, tt: r.tt, ta: r.ta, sec: r.section, text: r.final_text || r.text, src: r.src,
-      status: r.status, note: r.note, created: r.created, decided: r.decided
+      status: r.status, note: r.note, created: r.created, decided: r.decided, votes: r.votes, hidden: !!r.hid
     }))
   });
 }
@@ -389,7 +519,7 @@ async function mine(env, a) {
 
 async function rebuildOverlay(env) {
   const rows = (await env.DB.prepare(
-    "SELECT id,k,section,text,final_text,src,nick,decided FROM suggestions WHERE status='approved' ORDER BY decided ASC, id ASC LIMIT 3000"
+    "SELECT id,k,section,text,final_text,src,nick,decided FROM suggestions WHERE status='approved' AND id NOT IN (SELECT sid FROM hidden) ORDER BY decided ASC, id ASC LIMIT 3000"
   ).all()).results || [];
   const notes = {};
   for (const r of rows) (notes[r.k] ||= []).push({ id: r.id, s: r.section, t: r.final_text || r.text, u: r.src || "", by: r.nick || "", at: r.decided });
@@ -399,12 +529,17 @@ async function rebuildOverlay(env) {
   await env.DB.prepare("INSERT OR REPLACE INTO meta(k,v) VALUES('overlay_v',?)").bind(String(v)).run();
 }
 
+/** Заметки и, отдельным полем, голоса «Полезно»: они меняются чаще заметок и не поднимают версию, поэтому приходят при каждом запросе
+ *  (поле votes есть, только когда хотя бы у одной заметки есть голоса). */
 async function overlay(env, u) {
   const vr = await env.DB.prepare("SELECT v FROM meta WHERE k='overlay_v'").first();
   const v = parseInt(vr?.v || "0", 10) || 0;
-  if (parseInt(u.searchParams.get("v") ?? "-1", 10) === v) return J({ v, same: true });
+  const votes = await voteMap(env);
+  const vj = Object.keys(votes).length ? `,"votes":${JSON.stringify(votes)}` : "";
+  const hdr = { "content-type": "application/json", "cache-control": "no-store" };
+  if (parseInt(u.searchParams.get("v") ?? "-1", 10) === v) return new Response(`{"v":${v},"same":true${vj}}`, { headers: hdr });
   const o = await env.DB.prepare("SELECT v FROM meta WHERE k='overlay'").first();
-  return new Response(`{"v":${v},"notes":${o?.v || "{}"}}`, { headers: { "content-type": "application/json", "cache-control": "no-store" } });
+  return new Response(`{"v":${v},"notes":${o?.v || "{}"}${vj}}`, { headers: hdr });
 }
 
 // ───────── Telegram: проверка предложений ─────────
@@ -422,19 +557,19 @@ async function tg(env, method, payload) {
   } catch { return null; }
 }
 
-function card(s) {
+function card(s, o = {}) {
   const track = [s.ta, s.tt].filter(Boolean).map(esc).join(" — ");
   let t = `📝 #${s.id} · ${esc(s.nick || "—")}\n🎵 ${track ? track + " " : ""}<code>${esc(s.k)}</code>\n📂 ${esc(SEC_NAME[s.section] || s.section)}\n\n${esc(s.final_text || s.text)}`;
   if (s.src) t += `\n\n🔗 ${esc(s.src)}`;
-  if (s.status === "approved") t += "\n\n✅ <b>Approved</b>";
+  if (s.status === "approved") t += o.live ? "\n\n⚡ <b>Published at once</b> — trusted author" : "\n\n✅ <b>Approved</b>";
   else if (s.status === "rejected") t += "\n\n❌ <b>Rejected</b>" + (s.note ? ": " + esc(s.note) : "");
   else if (s.status === "deleted") t += "\n\n🗑 <b>Deleted</b> — it is gone from the app";
   else t += "\n\n<i>Reply with new text to edit and approve, or “/no reason” to reject with a note.</i>";
   return t;
 }
-// У ждущей карточки: Approve / Reject / Ban. У одобренной одна кнопка: Delete (убрать заметку из приложения).
-const keyboard = (s) => s.status === "approved"
-  ? { inline_keyboard: [[{ text: "🗑 Delete", callback_data: "d:" + s.id }]] }
+// У ждущей карточки: Approve / Reject / Ban. У одобренной: Delete (убрать заметку из приложения), а если автор доверенный, ещё Pause trust.
+const keyboard = (s, trusted = false) => s.status === "approved"
+  ? { inline_keyboard: [[{ text: "🗑 Delete", callback_data: "d:" + s.id }], ...(trusted && s.user_id ? [[{ text: "⏸ Pause trust", callback_data: "t:" + s.user_id }]] : [])] }
   : {
     inline_keyboard: [
       [{ text: "✅ Approve", callback_data: "a:" + s.id }, { text: "❌ Reject", callback_data: "r:" + s.id }],
@@ -444,14 +579,42 @@ const keyboard = (s) => s.status === "approved"
 /** Подтверждение удаления: случайное нажатие на Delete ничего не стирает. */
 const sure = (id) => ({ inline_keyboard: [[{ text: "🗑 Yes, delete", callback_data: "y:" + id }, { text: "↩️ Cancel", callback_data: "n:" + id }]] });
 /** Карточка после решения: текст по статусу, а кнопки только у одобренной (Delete), у остальных их нет. */
-const cardEdit = (chat_id, message_id, s) => ({
+const cardEdit = (chat_id, message_id, s, trusted = false) => ({
   chat_id, message_id, text: card(s), parse_mode: "HTML", disable_web_page_preview: true,
-  ...(s.status === "approved" ? { reply_markup: keyboard(s) } : {})
+  ...(s.status === "approved" ? { reply_markup: keyboard(s, trusted) } : {})
 });
 
-async function notify(env, s) {
+const isTrusted = async (env, s) => !!s.user_id && (await trustOf(env, s.user_id)).state === "yes";
+
+async function notify(env, s, o = {}) {
+  const kb = keyboard(s, s.status === "approved" && await isTrusted(env, s));
   for (const id of admins(env)) {
-    await tg(env, "sendMessage", { chat_id: id, text: card(s), parse_mode: "HTML", disable_web_page_preview: true, reply_markup: keyboard(s) });
+    await tg(env, "sendMessage", { chat_id: id, text: card(s, o), parse_mode: "HTML", disable_web_page_preview: true, reply_markup: kb });
+  }
+}
+
+// Карточка жалобы: новая заметка с кнопками Delete / Keep. Keep закрывает жалобы и возвращает скрытую заметку в приложение.
+const WHY_NAME = { spam: "spam", offensive: "offensive", wrong: "wrong or misleading", other: "other" };
+async function reportCard(env, s, hidden) {
+  const rows = (await env.DB.prepare("SELECT why, COUNT(*) AS n FROM reports WHERE sid=? AND resolved=0 GROUP BY why ORDER BY n DESC").bind(s.id).all()).results || [];
+  const total = rows.reduce((x, r) => x + r.n, 0);
+  const track = [s.ta, s.tt].filter(Boolean).map(esc).join(" — ");
+  let t = `🚩 #${s.id} · ${esc(s.nick || "—")}\n🎵 ${track ? track + " " : ""}<code>${esc(s.k)}</code>\n📂 ${esc(SEC_NAME[s.section] || s.section)}\n\n${esc(s.final_text || s.text)}`;
+  if (s.src) t += `\n\n🔗 ${esc(s.src)}`;
+  t += `\n\nReports: ${total} (${rows.map(r => `${WHY_NAME[r.why] || esc(r.why)} ×${r.n}`).join(", ")})`;
+  if (hidden) t += "\n🙈 <b>Hidden</b> from the app until you decide";
+  return t;
+}
+const reportKeyboard = (s, trusted) => ({
+  inline_keyboard: [
+    [{ text: "🗑 Delete", callback_data: "x:" + s.id }, { text: "✅ Keep", callback_data: "k:" + s.id }],
+    ...(s.user_id ? [[...(trusted ? [{ text: "⏸ Pause trust", callback_data: "t:" + s.user_id }] : []), { text: "🚫 Ban author", callback_data: "b:" + s.user_id }]] : [])
+  ]
+});
+async function notifyReport(env, s, hidden) {
+  const text = await reportCard(env, s, hidden), kb = reportKeyboard(s, await isTrusted(env, s));
+  for (const id of admins(env)) {
+    await tg(env, "sendMessage", { chat_id: id, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: kb });
   }
 }
 
@@ -463,9 +626,12 @@ async function decide(env, id, status, extra = {}) {
   await env.DB.prepare("UPDATE suggestions SET status=?, final_text=?, note=?, decided=? WHERE id=?").bind(status, fin, note, now(), id).run();
   if (status === "approved") await rebuildOverlay(env);
   // Автор узнаёт о решении во «Входящих»: «опубликовано», «опубликовано с правкой» (с текстом модератора) или «отклонено» (с причиной)
-  if (status === "approved") await addInbox(env, s.user_id, fin && fin !== s.text ? "edited" : "approved", s, fin);
-  else await addInbox(env, s.user_id, "rejected", s, note);
-  return { s: { ...s, status, final_text: fin, note } };
+  let trusted = false;
+  if (status === "approved") {
+    await addInbox(env, s.user_id, fin && fin !== s.text ? "edited" : "approved", s, fin);
+    trusted = await trustCheck(env, s.user_id);   // третья одобренная заметка: новые заметки автора дальше выходят сразу
+  } else await addInbox(env, s.user_id, "rejected", s, note);
+  return { s: { ...s, status, final_text: fin, note }, trusted };
 }
 
 /** Убирает одобренную заметку совсем: строка удаляется, лента заметок пересобирается (номер версии растёт),
@@ -475,7 +641,13 @@ async function removeApproved(env, id) {
   const s = await env.DB.prepare("SELECT * FROM suggestions WHERE id=?").bind(id).first();
   if (!s) return { gone: true };
   if (s.status !== "approved") return { s, unpublished: true };
-  await env.DB.prepare("DELETE FROM suggestions WHERE id=? AND status='approved'").bind(id).run();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM suggestions WHERE id=? AND status='approved'").bind(id),
+    env.DB.prepare("DELETE FROM votes WHERE sid=?").bind(id),
+    env.DB.prepare("DELETE FROM vote_n WHERE sid=?").bind(id),
+    env.DB.prepare("DELETE FROM reports WHERE sid=?").bind(id),
+    env.DB.prepare("DELETE FROM hidden WHERE sid=?").bind(id)
+  ]);
   await rebuildOverlay(env);
   await addInbox(env, s.user_id, "removed", s);
   return { s: { ...s, status: "deleted" } };
@@ -496,13 +668,13 @@ async function handleCallback(env, cq) {
   const [op, raw] = String(cq.data || "").split(":");
   const n = parseInt(raw, 10);
   const msg = cq.message;
-  const refresh = (s) => msg && tg(env, "editMessageText", cardEdit(msg.chat.id, msg.message_id, s));
+  const refresh = async (s) => msg && tg(env, "editMessageText", cardEdit(msg.chat.id, msg.message_id, s, s.status === "approved" && await isTrusted(env, s)));
   const markup = (mk) => msg && tg(env, "editMessageReplyMarkup", { chat_id: msg.chat.id, message_id: msg.message_id, reply_markup: mk || { inline_keyboard: [] } });
   if (op === "a" || op === "r") {
     const r = await decide(env, n, op === "a" ? "approved" : "rejected");
     if (!r) return answer("Not found");
     await refresh(r.s);
-    return answer(r.already ? "Already " + r.s.status : op === "a" ? "Approved" : "Rejected");
+    return answer(r.already ? "Already " + r.s.status : op === "a" ? (r.trusted ? "Approved · author is now trusted" : "Approved") : "Rejected");
   }
   if (op === "b") {
     await banUser(env, n, true);
@@ -520,8 +692,44 @@ async function handleCallback(env, cq) {
     const s = await env.DB.prepare("SELECT * FROM suggestions WHERE id=?").bind(n).first();
     if (!s) { await markup(); return answer("Already deleted"); }
     if (s.status !== "approved") return answer("Not published, nothing to delete");
-    await markup(op === "d" ? sure(n) : keyboard(s));
+    await markup(op === "d" ? sure(n) : keyboard(s, await isTrusted(env, s)));
     return answer(op === "d" ? "Delete it from the app?" : "Cancelled");
+  }
+  // Жалобы: x спрашивает подтверждение, xy удаляет заметку, xn отменяет, k закрывает жалобы (скрытая заметка возвращается в приложение)
+  if (op === "x" || op === "xn") {
+    const s = await env.DB.prepare("SELECT * FROM suggestions WHERE id=?").bind(n).first();
+    if (!s) { await markup(); return answer("Already deleted"); }
+    if (s.status !== "approved") return answer("Not published, nothing to delete");
+    await markup(op === "x"
+      ? { inline_keyboard: [[{ text: "🗑 Yes, delete", callback_data: "xy:" + n }, { text: "↩️ Cancel", callback_data: "xn:" + n }]] }
+      : reportKeyboard(s, await isTrusted(env, s)));
+    return answer(op === "x" ? "Delete it from the app?" : "Cancelled");
+  }
+  if (op === "xy") {
+    const r = await removeApproved(env, n);
+    if (r.gone) { await markup(); return answer("Already deleted"); }
+    if (r.unpublished) return answer("Not published, nothing to delete");
+    await refresh(r.s);
+    return answer("Deleted");
+  }
+  if (op === "k") {
+    const s = await env.DB.prepare("SELECT * FROM suggestions WHERE id=?").bind(n).first();
+    if (!s) { await markup(); return answer("Already deleted"); }
+    const text = await reportCard(env, s, false);
+    await env.DB.prepare("UPDATE reports SET resolved=1 WHERE sid=?").bind(n).run();
+    const h = await env.DB.prepare("DELETE FROM hidden WHERE sid=?").bind(n).run();
+    if (h.meta.changes) await rebuildOverlay(env);
+    if (msg) await tg(env, "editMessageText", { chat_id: msg.chat.id, message_id: msg.message_id, text: text + "\n\n✅ <b>Kept</b> — reports closed", parse_mode: "HTML", disable_web_page_preview: true });
+    return answer(h.meta.changes ? "Kept, visible in the app again" : "Kept");
+  }
+  // Pause trust: заметки автора снова проверяются вручную; /trust ник возвращает доверие. Кнопка с карточки убирается.
+  if (op === "t") {
+    const u = await env.DB.prepare("SELECT nick FROM users WHERE id=?").bind(n).first();
+    if (!u) { await markup(); return answer("No such account"); }
+    await setTrust(env, n, -1);
+    const kb = (msg?.reply_markup?.inline_keyboard || []).map(row => row.filter(b => !String(b.callback_data).startsWith("t:"))).filter(row => row.length);
+    await markup({ inline_keyboard: kb });
+    return answer(`Trust paused for ${u.nick}. /trust ${u.nick} brings it back.`);
   }
   return answer("?");
 }
@@ -545,7 +753,7 @@ async function handleMessage(env, m) {
       : await decide(env, sid, "approved", { final: clean(text, 1500) });
     if (!r) return say("Suggestion not found.");
     if (r.already) return say(`#${sid} is already ${r.s.status}.`);
-    await tg(env, "editMessageText", cardEdit(m.chat.id, m.reply_to_message.message_id, r.s));
+    await tg(env, "editMessageText", cardEdit(m.chat.id, m.reply_to_message.message_id, r.s, r.s.status === "approved" && await isTrusted(env, r.s)));
     return say(reject ? "Rejected." : "Approved with your edit.");
   }
   const [cmd, ...rest] = text.split(/\s+/);
@@ -553,12 +761,18 @@ async function handleMessage(env, m) {
   const findUser = () => env.DB.prepare("SELECT * FROM users WHERE nick_lc=?").bind(arg).first();
   switch (cmd.toLowerCase().replace(/@\w+$/, "")) {
     case "/help":
-      return say("/pending — suggestions waiting for review\n/approved [nick] — published notes, each with a Delete button\n/stats — counters\n/user nick — account info\n/ban nick · /unban nick\n\nOn a suggestion card: Approve, Reject, or reply with new text to edit and approve (“/no reason” rejects with a note). An approved note keeps a 🗑 Delete button (it asks to confirm) that removes it from the app.");
+      return say("/pending — suggestions waiting for review\n/approved [nick] — published notes, each with a Delete button\n/reports — published notes people reported\n/stats — counters\n/user nick — account info\n/trust nick · /untrust nick — let someone publish at once, or pause that\n/ban nick · /unban nick\n\nOn a suggestion card: Approve, Reject, or reply with new text to edit and approve (“/no reason” rejects with a note). An approved note keeps a 🗑 Delete button (it asks to confirm) that removes it from the app.\n\nAfter 3 approved notes an author is trusted: new notes without links go live at once (up to 5 a day), you get a card with Delete and Pause trust. Three different reports hide a note from the app until you press Keep or Delete.");
     case "/stats": {
       const c = await env.DB.prepare("SELECT SUM(status='pending') AS p, SUM(status='approved') AS a, SUM(status='rejected') AS r FROM suggestions").first();
       const u = await env.DB.prepare("SELECT COUNT(*) AS n, SUM(banned) AS b FROM users").first();
       const bk = await env.DB.prepare("SELECT COUNT(*) AS n, SUM(size) AS s FROM backups").first();
-      return say(`Users: ${u?.n || 0} (banned ${u?.b || 0})\nPending: ${c?.p || 0} · Approved: ${c?.a || 0} · Rejected: ${c?.r || 0}\nCloud backups: ${bk?.n || 0} (${((bk?.s || 0) / 1048576).toFixed(1)} MB of ${(BACKUP_POOL / 1048576).toFixed(0)} MB)`);
+      const tu = await env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM users u WHERE u.banned=0 AND COALESCE((SELECT level FROM trust t WHERE t.user_id=u.id),0) >= 0 AND (COALESCE((SELECT level FROM trust t WHERE t.user_id=u.id),0) > 0 OR (SELECT COUNT(*) FROM suggestions s WHERE s.user_id=u.id AND s.status='approved') >= ?)"
+      ).bind(TRUST_AFTER).first();
+      const vt = await env.DB.prepare("SELECT COUNT(*) AS n FROM votes").first();
+      const rp = await env.DB.prepare("SELECT COUNT(DISTINCT sid) AS n FROM reports WHERE resolved=0").first();
+      const hd = await env.DB.prepare("SELECT COUNT(*) AS n FROM hidden").first();
+      return say(`Users: ${u?.n || 0} (banned ${u?.b || 0})\nPending: ${c?.p || 0} · Approved: ${c?.a || 0} · Rejected: ${c?.r || 0}\nTrusted authors: ${tu?.n || 0} · Helpful votes: ${vt?.n || 0}\nOpen reports: ${rp?.n || 0} (hidden ${hd?.n || 0})\nCloud backups: ${bk?.n || 0} (${((bk?.s || 0) / 1048576).toFixed(1)} MB of ${(BACKUP_POOL / 1048576).toFixed(0)} MB)`);
     }
     case "/pending": {
       const rows = (await env.DB.prepare("SELECT * FROM suggestions WHERE status='pending' ORDER BY id ASC LIMIT 10").all()).results || [];
@@ -572,7 +786,7 @@ async function handleMessage(env, m) {
       const q = (sql) => (arg ? env.DB.prepare(sql).bind(arg) : env.DB.prepare(sql));
       const rows = ((await q(`SELECT s.* ${from} ORDER BY s.id DESC LIMIT 10`).all()).results || []).reverse();
       if (!rows.length) return say(arg ? "No approved notes from that nickname." : "No approved notes.");
-      for (const s of rows) await say(card(s), { reply_markup: keyboard(s) });
+      for (const s of rows) await say(card(s), { reply_markup: keyboard(s, await isTrusted(env, s)) });
       const total = (await q(`SELECT COUNT(*) AS n ${from}`).first())?.n || 0;
       if (total > rows.length) await say(`Showing the latest ${rows.length} of ${total}. Delete some and send /approved again for the rest.`);
       return;
@@ -582,7 +796,25 @@ async function handleMessage(env, m) {
       if (!u) return say("No such nickname.");
       const c = await env.DB.prepare("SELECT SUM(status='pending') AS p, SUM(status='approved') AS a, SUM(status='rejected') AS r FROM suggestions WHERE user_id=?").bind(u.id).first();
       const bk = await env.DB.prepare("SELECT size, updated FROM backups WHERE user_id=?").bind(u.id).first();
-      return say(`${esc(u.nick)} (#${u.id})${u.banned ? " · banned" : ""}\nJoined: ${new Date(u.created * 1000).toISOString().slice(0, 10)}\nPending ${c?.p || 0} · Approved ${c?.a || 0} · Rejected ${c?.r || 0}\nCloud backup: ${bk ? Math.ceil(bk.size / 1024) + " KB, " + new Date(bk.updated).toISOString().slice(0, 10) : "none"}`);
+      const tr = await trustOf(env, u.id, c?.a || 0);
+      const trust = tr.state === "yes" ? (tr.manual ? "trusted (set by you)" : "trusted") : tr.state === "paused" ? "paused" : `not yet (${tr.have} of ${tr.need} approved)`;
+      return say(`${esc(u.nick)} (#${u.id})${u.banned ? " · banned" : ""}\nJoined: ${new Date(u.created * 1000).toISOString().slice(0, 10)}\nPending ${c?.p || 0} · Approved ${c?.a || 0} · Rejected ${c?.r || 0}\nTrust: ${trust}\nCloud backup: ${bk ? Math.ceil(bk.size / 1024) + " KB, " + new Date(bk.updated).toISOString().slice(0, 10) : "none"}`);
+    }
+    case "/trust": case "/untrust": {
+      const u = await findUser();
+      if (!u) return say("No such nickname.");
+      const on = cmd.toLowerCase().startsWith("/trust");
+      await setTrust(env, u.id, on ? 1 : -1);
+      return say(on ? `${esc(u.nick)} is trusted: new notes without links go live at once.` : `Trust paused for ${esc(u.nick)}: new notes wait for review again. /trust ${esc(u.nick)} brings it back.`);
+    }
+    case "/reports": {
+      const rows = (await env.DB.prepare(
+        "SELECT s.*, (SELECT COUNT(*) FROM reports r WHERE r.sid=s.id AND r.resolved=0) AS rn, EXISTS(SELECT 1 FROM hidden h WHERE h.sid=s.id) AS hid "
+        + "FROM suggestions s WHERE s.status='approved' AND EXISTS (SELECT 1 FROM reports r WHERE r.sid=s.id AND r.resolved=0) ORDER BY rn DESC, s.id DESC LIMIT 10"
+      ).all()).results || [];
+      if (!rows.length) return say("No open reports.");
+      for (const s of rows) await say(await reportCard(env, s, !!s.hid), { reply_markup: reportKeyboard(s, await isTrusted(env, s)) });
+      return;
     }
     case "/ban": case "/unban": {
       const u = await findUser();
@@ -634,6 +866,9 @@ export async function community(req, env, ctx) {
     if (p === "/a/backup/delete" && m === "POST") return await delBackup(env, a);
     if (p === "/a/inbox" && m === "GET") return await inbox(env, a);
     if (p === "/a/inbox/seen" && m === "POST") return a.banned ? J({ error: "banned" }, 403) : await inboxSeen(req, env, a);
+    if (p === "/a/vote" && m === "POST") return await vote(req, env, a);
+    if (p === "/a/votes" && m === "GET") return await myVotes(env, a);
+    if (p === "/a/report" && m === "POST") return await report(req, env, ip, ctx, a);
     if (p === "/s" && m === "POST") return await suggest(req, env, ip, ctx, a);
     if (p === "/s/mine" && m === "GET") return await mine(env, a);
     return J({ error: "none" }, 404);

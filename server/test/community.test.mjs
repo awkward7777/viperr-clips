@@ -564,3 +564,300 @@ test("Telegram: /stats и /user показывают облачные копии
   await w.hook({ message: { from: { id: ADMIN }, chat: { id: ADMIN }, text: "/user fan_one" } });
   assert.match(w.calls.at(-1).body.text, /Cloud backup: none/);
 });
+
+// ───────── Доверие, голоса «Полезно», жалобы ─────────
+
+/** Команды модератора в Telegram и несколько коротких проверок. */
+const mod = (w) => ({
+  tap: (data, from = ADMIN, message = {}) => w.hook({ callback_query: { id: "q" + w.calls.length, from: { id: from }, data, message: { chat: { id: from }, message_id: 70, ...message } } }),
+  say: (text, from = ADMIN) => w.hook({ message: { from: { id: from }, chat: { id: from }, text } }),
+  lastOf: (method) => w.calls.filter(c => c.method === method).at(-1)?.body,
+  cards: (n, method = "sendMessage") => w.calls.slice(n).filter(c => c.method === method).map(c => c.body),
+  status: async (id) => (await w.env.DB.prepare("SELECT status FROM suggestions WHERE id=?").bind(id).first())?.status ?? null,
+  overlay: async (q = "") => (await w.call("GET", "/stories/overlay" + q)).json,
+  count: async (t) => (await w.env.DB.prepare(`SELECT COUNT(*) AS n FROM ${t}`).first()).n,
+  kb: (b) => b.reply_markup.inline_keyboard.map(r => r.map(x => x.callback_data))
+});
+const PLAIN = (i, over = {}) => SUG({ k: "rel-" + i + ":0", src: "", text: "A plain note number " + i + " about the recording.", ...over });
+
+test("доверие: после трёх одобренных заметок новые выходят сразу; ссылки, повторы и лишнее идут на проверку; модератор приостанавливает и возвращает", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json;
+  const meTrust = async (t = a.token) => (await w.call("GET", "/a/me", undefined, t)).json.trust;
+  assert.deepEqual(await meTrust(), { state: "no", have: 0, need: 3 });
+  for (const i of [1, 2, 3]) assert.equal((await w.call("POST", "/s", PLAIN(i), a.token)).json.status, "pending");
+  await m.tap("a:1"); await m.tap("a:2");
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Approved");
+  assert.deepEqual(await meTrust(), { state: "no", have: 2, need: 3 });
+  await m.tap("a:3");
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Approved · author is now trusted");
+  assert.deepEqual(await meTrust(), { state: "yes", have: 3, need: 3 });
+  assert.deepEqual((await w.call("GET", "/a/inbox", undefined, a.token)).json.items.map(i => i.kind), ["trusted", "approved", "approved", "approved"]);
+
+  // дальше заметка без ссылок выходит сразу: она уже в ленте, а модератору приходит карточка с Delete и Pause trust
+  await w.env.DB.prepare("UPDATE users SET created=created-864000").run();   // не «новичок»: в сутки можно 10 заметок, а не 3
+  let n = w.calls.length;
+  const live = await w.call("POST", "/s", PLAIN(4), a.token);
+  assert.deepEqual([live.status, live.json.status], [200, "approved"]);
+  assert.equal(await m.status(live.json.id), "approved");
+  assert.ok((await m.overlay()).notes["rel-4:0"]);
+  const c1 = m.cards(n)[0];
+  assert.match(c1.text, /^📝 #4 · Fan_One/);
+  assert.match(c1.text, /⚡ <b>Published at once<\/b>/);
+  assert.deepEqual(m.kb(c1), [["d:4"], ["t:1"]]);
+
+  // ссылка в поле источника или в самом тексте: сначала проверка, как у новичка
+  assert.equal((await w.call("POST", "/s", PLAIN(5, { src: "https://example.com/x" }), a.token)).json.status, "pending");
+  assert.equal((await w.call("POST", "/s", PLAIN(6, { text: "Mentioned in an interview, see https://youtu.be/abc for details." }), a.token)).json.status, "pending");
+  assert.equal((await w.call("POST", "/s", PLAIN(7, { text: "He says the full version is on kaiangel.ru right now." }), a.token)).json.status, "pending");
+  // тот же текст ещё раз не проходит, даже когда заметка уже опубликована
+  assert.equal((await w.call("POST", "/s", PLAIN(4), a.token)).status, 409);
+
+  // Pause trust с карточки: кнопка пропадает, заметки снова ждут проверки, автору приходит запись
+  await m.tap("t:1", ADMIN, { reply_markup: { inline_keyboard: c1.reply_markup.inline_keyboard } });
+  assert.match(m.lastOf("answerCallbackQuery").text, /Trust paused for Fan_One/);
+  assert.deepEqual(m.kb(m.lastOf("editMessageReplyMarkup")), [["d:4"]]);
+  assert.equal((await meTrust()).state, "paused");
+  assert.equal((await w.call("POST", "/s", PLAIN(8), a.token)).json.status, "pending");
+  assert.equal((await w.call("GET", "/a/inbox", undefined, a.token)).json.items[0].kind, "paused");
+  // три одобренные заметки приостановленное доверие не возвращают, а следующее одобрение не пишет «доверенный» заново
+  await m.tap("a:8");
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Approved");
+  assert.equal((await meTrust()).state, "paused");
+
+  // /user и /trust: состояние видно, команды только для админа, возвращённое доверие работает
+  await m.say("/user fan_one");
+  assert.match(m.lastOf("sendMessage").text, /Trust: paused/);
+  const calls = w.calls.length;
+  await m.say("/trust fan_one", 5);
+  assert.equal(w.calls.length, calls);
+  assert.equal((await meTrust()).state, "paused");
+  await m.say("/trust fan_one");
+  assert.match(m.lastOf("sendMessage").text, /Fan_One is trusted/);
+  await m.say("/user fan_one");
+  assert.match(m.lastOf("sendMessage").text, /Trust: trusted \(set by you\)/);
+  assert.equal((await w.call("GET", "/a/inbox", undefined, a.token)).json.items[0].kind, "trusted");
+  assert.equal((await w.call("POST", "/s", PLAIN(9), a.token)).json.status, "approved");
+  await m.say("/trust nobody");
+  assert.match(m.lastOf("sendMessage").text, /No such nickname/);
+
+  // доверие, выданное вручную, работает и без трёх одобренных; без проверки выходит не больше 5 заметок в сутки
+  const b = (await w.reg("Fan_Two", "secret123", "2.2.2.2")).json;
+  assert.deepEqual(await meTrust(b.token), { state: "no", have: 0, need: 3 });
+  await m.say("/trust fan_two");
+  await w.env.DB.prepare("UPDATE users SET created=created-864000 WHERE nick_lc='fan_two'").run();
+  const sts = [];
+  for (let i = 20; i < 27; i++) sts.push((await w.call("POST", "/s", PLAIN(i), b.token)).json.status);
+  assert.deepEqual(sts, ["approved", "approved", "approved", "approved", "approved", "pending", "pending"]);
+  await m.say("/untrust fan_two");
+  assert.match(m.lastOf("sendMessage").text, /Trust paused for Fan_Two/);
+
+  // счётчики для модератора
+  await m.say("/stats");
+  assert.match(m.lastOf("sendMessage").text, /Trusted authors: 1 · Helpful votes: 0\nOpen reports: 0 \(hidden 0\)/);
+  await m.say("/help");
+  assert.match(m.lastOf("sendMessage").text, /\/reports/);
+  assert.match(m.lastOf("sendMessage").text, /\/trust nick · \/untrust nick/);
+});
+
+test("доверие: забаненный автор не публикует; старые приложения видят обычный ответ", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json;
+  await m.say("/trust fan_one");
+  await w.env.DB.prepare("UPDATE users SET created=created-864000").run();
+  const ok = await w.call("POST", "/s", PLAIN(1), a.token);
+  assert.deepEqual(ok.json, { ok: true, id: 1, status: "approved" });
+  await m.say("/ban fan_one");
+  assert.equal((await w.call("POST", "/s", PLAIN(2), a.token)).status, 401);
+  assert.equal((await w.call("POST", "/a/vote", { id: 1 }, a.token)).status, 401);
+  assert.equal((await w.call("POST", "/a/report", { id: 1, why: "spam" }, a.token)).status, 401);
+});
+
+test("голоса «Полезно»: один голос на аккаунт, свою заметку нельзя, счётчик в ленте, запись автору на 5 голосах, чистка при удалении заметки", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json;
+  const vs = [];
+  for (let i = 1; i <= 5; i++) vs.push((await w.reg("Voter" + i, "secret123", "3.3.3." + i)).json);
+  await w.call("POST", "/s", SUG({ text: "A note that people will find useful." }), a.token);                      // #1
+  await w.call("POST", "/s", SUG({ k: "rel-2:0", text: "A note that is still waiting for the moderator." }), a.token); // #2, ждёт
+  await m.tap("a:1");
+  const vote = (t, id = 1, on) => w.call("POST", "/a/vote", { id, ...(on === undefined ? {} : { on }) }, t);
+  const helpful = async () => (await w.call("GET", "/a/inbox", undefined, a.token)).json.items.filter(i => i.kind === "helpful");
+
+  assert.equal((await w.call("POST", "/a/vote", { id: 1 })).status, 401);
+  assert.equal((await w.call("GET", "/a/votes")).status, 401);
+  assert.equal((await vote(a.token)).json.error, "own");
+  assert.equal((await vote(vs[0].token, 2)).json.error, "gone");      // ещё не опубликована
+  assert.equal((await vote(vs[0].token, 999)).json.error, "gone");
+  assert.equal((await w.call("POST", "/a/vote", { id: "x" }, vs[0].token)).json.error, "bad");
+  assert.equal((await w.call("POST", "/a/vote", {}, vs[0].token)).json.error, "bad");
+  assert.equal((await m.overlay()).votes, undefined);                 // голосов нет: поля в ответе нет
+
+  assert.deepEqual((await vote(vs[0].token)).json, { ok: true, id: 1, n: 1, mine: true });
+  assert.equal((await vote(vs[0].token)).json.n, 1);                  // повторный голос ничего не меняет
+  assert.deepEqual((await w.call("GET", "/a/votes", undefined, vs[0].token)).json.ids, [1]);
+  assert.deepEqual((await w.call("GET", "/a/votes", undefined, vs[1].token)).json.ids, []);
+  const ov = await m.overlay();
+  assert.deepEqual(ov.votes, { 1: 1 });
+  assert.deepEqual(await m.overlay("?v=" + ov.v), { v: ov.v, same: true, votes: { 1: 1 } });   // и при «не изменилось» счётчики приходят
+
+  for (const x of vs.slice(1, 4)) await vote(x.token);                // 2, 3, 4 голоса
+  assert.equal((await helpful()).length, 0);
+  assert.equal((await vote(vs[4].token)).json.n, 5);
+  assert.deepEqual((await helpful()).map(i => [i.text, i.ref, i.k]), [["5", 1, "rel-1:0"]]);
+  // голос можно снять и поставить снова: запись автору второй раз не приходит
+  assert.deepEqual((await vote(vs[4].token, 1, false)).json, { ok: true, id: 1, n: 4, mine: false });
+  assert.equal((await vote(vs[4].token, 1, false)).json.n, 4);
+  assert.equal((await vote(vs[4].token)).json.n, 5);
+  assert.equal((await helpful()).length, 1);
+  assert.equal((await w.call("GET", "/s/mine", undefined, a.token)).json.items.find(i => i.id === 1).votes, 5);
+
+  // заметку убрали: голоса и счётчик уходят вместе с ней
+  await m.tap("d:1"); await m.tap("y:1");
+  assert.equal(await m.count("votes"), 0);
+  assert.equal(await m.count("vote_n"), 0);
+  assert.equal((await m.overlay()).votes, undefined);
+
+  // не больше 120 голосов в час с одного аккаунта
+  const codes = [];
+  for (let i = 0; i < 125; i++) codes.push((await vote(vs[0].token, 999)).status);
+  assert.equal(codes.filter(c => c === 429).length > 0, true);
+});
+
+test("жалобы: карточка модератору, одна жалоба на аккаунт, после трёх заметка скрыта, Keep возвращает, Delete с подтверждением чистит всё", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json;
+  const rs = [];
+  for (let i = 1; i <= 5; i++) rs.push((await w.reg("Reporter" + i, "secret123", "4.4.4." + i)).json);
+  await w.call("POST", "/s", SUG({ text: "A note that somebody will report as spam." }), a.token);                    // #1
+  await w.call("POST", "/s", SUG({ k: "rel-2:0", text: "A second note, still waiting for the moderator." }), a.token); // #2, ждёт
+  await m.tap("a:1");
+  const rep = (t, id = 1, why = "spam") => w.call("POST", "/a/report", { id, why }, t);
+  const keyboard = [["x:1", "k:1"], ["b:" + a.id]];
+
+  assert.equal((await w.call("POST", "/a/report", { id: 1, why: "spam" })).status, 401);
+  assert.equal((await rep(a.token)).json.error, "own");
+  assert.equal((await rep(rs[0].token, 2)).json.error, "gone");        // ждущую жалобой не закрыть
+  assert.equal((await rep(rs[0].token, 1, "because")).json.error, "bad");
+  assert.equal((await w.call("POST", "/a/report", { why: "spam" }, rs[0].token)).json.error, "bad");
+
+  // первая жалоба: карточка модератору с причиной и кнопками
+  let n = w.calls.length;
+  assert.deepEqual((await rep(rs[0].token)).json, { ok: true });
+  let cs = m.cards(n);
+  assert.equal(cs.length, 1);
+  assert.match(cs[0].text, /^🚩 #1 · Fan_One/);
+  assert.match(cs[0].text, /Reports: 1 \(spam ×1\)/);
+  assert.deepEqual(m.kb(cs[0]), keyboard);
+
+  // повтор с того же аккаунта игнорируется; вторая жалоба от другого карточку не шлёт и заметку не прячет
+  n = w.calls.length;
+  assert.deepEqual((await rep(rs[0].token)).json, { ok: true, dup: true });
+  assert.deepEqual((await rep(rs[1].token, 1, "offensive")).json, { ok: true });
+  assert.equal(m.cards(n).length, 0);
+  const v0 = (await m.overlay()).v;
+  assert.ok((await m.overlay()).notes["rel-1:0"]);
+
+  // третья жалоба прячет заметку из ленты и шлёт вторую карточку
+  n = w.calls.length;
+  assert.deepEqual((await rep(rs[2].token, 1, "wrong")).json, { ok: true });
+  cs = m.cards(n);
+  assert.equal(cs.length, 1);
+  assert.match(cs[0].text, /Reports: 3 \(.*spam ×1.*\)/);
+  assert.match(cs[0].text, /🙈 <b>Hidden<\/b>/);
+  const ov = await m.overlay();
+  assert.equal(ov.notes["rel-1:0"], undefined);
+  assert.ok(ov.v > v0);
+  assert.equal(await m.status(1), "approved");                         // в базе заметка осталась
+  const mine = (await w.call("GET", "/s/mine", undefined, a.token)).json.items.find(i => i.id === 1);
+  assert.deepEqual([mine.status, mine.hidden], ["approved", true]);
+  assert.equal((await w.call("POST", "/a/vote", { id: 1 }, rs[3].token)).json.error, "gone");   // за скрытую не проголосовать
+  n = w.calls.length;
+  await rep(rs[3].token);                                              // четвёртая: карточки нет, заметка уже скрыта
+  assert.equal(m.cards(n).length, 0);
+
+  // /reports показывает открытые жалобы
+  n = w.calls.length;
+  await m.say("/reports");
+  cs = m.cards(n);
+  assert.equal(cs.length, 1);
+  assert.match(cs[0].text, /Reports: 4/);
+  assert.match(cs[0].text, /🙈 <b>Hidden<\/b>/);
+  await m.say("/stats");
+  assert.match(m.lastOf("sendMessage").text, /Open reports: 1 \(hidden 1\)/);
+
+  // не админ ничего нажать не может
+  await m.tap("k:1", 5);
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Not allowed");
+  assert.equal(await m.count("hidden"), 1);
+
+  // Keep: жалобы закрыты, заметка снова в ленте; новая жалоба от другого аккаунта снова зовёт модератора
+  await m.tap("k:1");
+  assert.match(m.lastOf("editMessageText").text, /✅ <b>Kept<\/b> — reports closed/);
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Kept, visible in the app again");
+  assert.ok((await m.overlay()).notes["rel-1:0"]);
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM reports WHERE resolved=0").first()).n, 0);
+  await m.say("/reports");
+  assert.equal(m.lastOf("sendMessage").text, "No open reports.");
+  assert.deepEqual((await rep(rs[0].token)).json, { ok: true, dup: true });   // кто уже жаловался, второй раз не может
+  n = w.calls.length;
+  assert.deepEqual((await rep(rs[4].token, 1, "other")).json, { ok: true });
+  assert.equal(m.cards(n).length, 1);
+
+  // Delete с карточки жалобы просит подтверждение, Cancel возвращает кнопки
+  await m.tap("x:1");
+  assert.deepEqual(m.lastOf("editMessageReplyMarkup").reply_markup.inline_keyboard[0].map(b => b.callback_data), ["xy:1", "xn:1"]);
+  await m.tap("xn:1");
+  assert.deepEqual(m.kb(m.lastOf("editMessageReplyMarkup")), keyboard);
+  assert.equal(await m.status(1), "approved");
+  await m.tap("x:1"); await m.tap("xy:1");
+  assert.equal(await m.status(1), null);
+  assert.match(m.lastOf("editMessageText").text, /🗑 <b>Deleted<\/b>/);
+  for (const t of ["reports", "hidden", "votes", "vote_n"]) assert.equal(await m.count(t), 0, t);
+  assert.equal((await m.overlay()).notes["rel-1:0"], undefined);
+  assert.equal((await w.call("GET", "/a/inbox", undefined, a.token)).json.items[0].kind, "removed");
+  // старые кнопки по удалённой заметке ничего не ломают
+  for (const d of ["k:1", "xy:1", "x:1"]) { await m.tap(d); assert.equal(m.lastOf("answerCallbackQuery").text, "Already deleted", d); }
+
+  // не больше 10 жалоб в сутки с одного аккаунта
+  const sp = (await w.reg("Spammer", "secret123", "4.4.9.9")).json;
+  const codes = [];
+  for (let i = 0; i < 12; i++) codes.push((await rep(sp.token, 500 + i)).status);
+  assert.deepEqual(codes, [404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 429, 429]);
+});
+
+test("жалобы: у доверенного автора на карточке есть Pause trust, кнопка Ban author работает", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json, b = (await w.reg("Reporter", "secret123", "7.7.7.7")).json;
+  await m.say("/trust fan_one");
+  await w.env.DB.prepare("UPDATE users SET created=created-864000 WHERE nick_lc='fan_one'").run();
+  await w.call("POST", "/s", PLAIN(1), a.token);                       // выходит сразу (#1)
+  const n = w.calls.length;
+  await w.call("POST", "/a/report", { id: 1, why: "offensive" }, b.token);
+  const card1 = m.cards(n)[0];
+  assert.deepEqual(m.kb(card1), [["x:1", "k:1"], ["t:" + a.id, "b:" + a.id]]);
+  await m.tap("b:" + a.id);
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Author banned");
+  assert.equal((await w.call("GET", "/a/me", undefined, a.token)).status, 401);
+});
+
+test("удаление аккаунта убирает его голоса, жалобы и доверие; счётчики голосов сходятся", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json, b = (await w.reg("Voter_B", "secret123", "6.6.6.6")).json, c = (await w.reg("Voter_C", "secret123", "6.6.6.7")).json;
+  await w.call("POST", "/s", SUG({ text: "A note that gets votes from two accounts." }), a.token);
+  await m.tap("a:1");
+  await w.call("POST", "/a/vote", { id: 1 }, b.token);
+  await w.call("POST", "/a/vote", { id: 1 }, c.token);
+  await w.call("POST", "/a/report", { id: 1, why: "other" }, b.token);
+  await m.say("/trust voter_b");
+  assert.deepEqual((await m.overlay()).votes, { 1: 2 });
+  assert.equal((await w.call("POST", "/a/delete", { pw: dk("secret123", "Voter_B") }, b.token)).status, 200);
+  assert.deepEqual((await m.overlay()).votes, { 1: 1 });
+  for (const t of ["reports", "trust"]) assert.equal(await m.count(t), 0, t);
+  assert.equal(await m.count("votes"), 1);
+  // автор удаляет аккаунт: опубликованная заметка остаётся без имени, голоса при ней
+  assert.equal((await w.call("POST", "/a/delete", { pw: dk("secret123", "Fan_One") }, a.token)).status, 200);
+  const ov = await m.overlay();
+  assert.equal(ov.notes["rel-1:0"][0].by, "");
+  assert.deepEqual(ov.votes, { 1: 1 });
+});

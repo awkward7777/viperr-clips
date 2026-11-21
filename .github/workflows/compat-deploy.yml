@@ -101,7 +101,7 @@ jobs:
           R=$(curl -s "$API/setWebhook" --data-urlencode "url=$U/tg" -d "secret_token=$SEC" -d 'allowed_updates=["message","callback_query"]' -d max_connections=4)
           echo "webhook: $(echo "$R" | jq -c '{ok,description,error_code}')"
           echo "$R" | jq -e '.ok==true' >/dev/null || { echo "::warning::Telegram не принял webhook. Проверьте токен бота."; exit 0; }
-          curl -s "$API/setMyCommands" -H 'content-type: application/json' -d '{"commands":[{"command":"pending","description":"Suggestions waiting for review"},{"command":"approved","description":"Published notes (delete from here)"},{"command":"stats","description":"Counters"},{"command":"help","description":"All commands"}]}' >/dev/null
+          curl -s "$API/setMyCommands" -H 'content-type: application/json' -d '{"commands":[{"command":"pending","description":"Suggestions waiting for review"},{"command":"approved","description":"Published notes (delete from here)"},{"command":"reports","description":"Notes people reported"},{"command":"stats","description":"Counters"},{"command":"help","description":"All commands"}]}' >/dev/null
           curl -s "$API/getWebhookInfo" | jq -c '.result | {url,pending_update_count,last_error_message}'
       - name: Publish address
         run: |
@@ -139,7 +139,11 @@ jobs:
           curl -s -X POST $U/a/backup -H "authorization: Bearer $T" -H 'content-type: application/json' -d "$(jq -nc --arg d "$B" '{d:$d,base:0,device:"smoke",info:{pl:1,fav:2}}')" | jq -e '.ok==true' >/dev/null
           curl -s "$U/a/backup?full=1" -H "authorization: Bearer $T" | jq -e --arg d "$B" '.has==true and .d==$d and .info.fav==2' >/dev/null
           curl -s $U/a/inbox -H "authorization: Bearer $T" | jq -e '.unread==0 and (.items|length)==0' >/dev/null
+          curl -s $U/a/me -H "authorization: Bearer $T" | jq -e '.trust.state=="no" and .trust.need==3' >/dev/null
+          curl -s $U/a/votes -H "authorization: Bearer $T" | jq -e '(.ids|length)==0' >/dev/null
+          curl -s -X POST $U/a/vote -H "authorization: Bearer $T" -H 'content-type: application/json' -d '{"id":2147483000}' | jq -e '.error=="gone"' >/dev/null
+          curl -s -X POST $U/a/report -H "authorization: Bearer $T" -H 'content-type: application/json' -d '{"id":2147483000,"why":"spam"}' | jq -e '.error=="gone"' >/dev/null
           curl -s -X POST $U/a/backup/delete -H "authorization: Bearer $T" -H 'content-type: application/json' -d '{}' | jq -e '.ok==true' >/dev/null
           curl -s -X POST $U/a/login -H 'content-type: application/json' -d "{\"nick\":\"$N\",\"pw\":\"$PW\"}" | jq -e '.token' >/dev/null
           curl -s -X POST $U/a/delete -H "authorization: Bearer $T" -H 'content-type: application/json' -d "{\"pw\":\"$PW\"}" | jq -e '.ok==true' >/dev/null
-          echo "Сообщество: регистрация, вход, облачная копия, «Входящие» и удаление работают."
+          echo "Сообщество: регистрация, вход, облачная копия, «Входящие», голоса, жалобы и удаление работают."
