@@ -2,6 +2,7 @@
 // проверка в Telegram и «заметки фанатов» (overlay), которые приложение накладывает на stories.json.
 // К аккаунту относятся ещё облачная копия библиотеки (/a/backup) и «Входящие» автора (/a/inbox): решения модератора по его заметкам.
 // Доверенные авторы (после трёх одобренных заметок новые без ссылок выходят сразу), голоса «Полезно» (/a/vote) и жалобы на заметки (/a/report).
+// Публичные плейлисты с кодом (/a/pl, читать можно без аккаунта: /pl и /pl/КОД) и необязательный профиль (/a/profile, чужой: /u/ник).
 //
 // Пароль до сервера не доходит: телефон считает PBKDF2 и присылает 64 hex-символа (pw). Сервер хранит HMAC(pepper, pw),
 // pepper создаётся при первом обращении и лежит в таблице meta. Токен сессии хранится только на телефоне, в базе его SHA-256.
@@ -307,9 +308,12 @@ async function me(env, a) {
   const un = await env.DB.prepare("SELECT COUNT(*) AS n FROM inbox WHERE user_id=? AND seen=0").bind(a.id).first();
   const bk = await env.DB.prepare("SELECT size,info,device,updated FROM backups WHERE user_id=?").bind(a.id).first();
   const tr = await trustOf(env, a.id, c?.a || 0);
+  const pr = await env.DB.prepare("SELECT public, av FROM profiles WHERE user_id=?").bind(a.id).first();
+  const pn = (await env.DB.prepare("SELECT COUNT(*) AS n FROM pubpl WHERE user_id=?").bind(a.id).first())?.n || 0;
   return J({
     ...userJson(a), created: a.created, pending: c?.p || 0, approved: c?.a || 0, rejected: c?.r || 0,
-    unread: un?.n || 0, backup: bk ? backupMeta(bk) : null, trust: { state: tr.state, have: tr.have, need: tr.need }
+    unread: un?.n || 0, backup: bk ? backupMeta(bk) : null, trust: { state: tr.state, have: tr.have, need: tr.need },
+    prof: { public: !!pr?.public, av: pr?.av || 0 }, pl: pn
   });
 }
 
@@ -336,6 +340,7 @@ async function deleteAccount(req, env, a) {
   if (!(await verifyPw(env, a.id, b.pw))) return J({ error: "creds" }, 401);
   const hadApproved = await env.DB.prepare("SELECT 1 AS x FROM suggestions WHERE user_id=? AND status='approved' LIMIT 1").bind(a.id).first();
   const hadVotes = await env.DB.prepare("SELECT 1 AS x FROM votes WHERE user_id=? LIMIT 1").bind(a.id).first();
+  const hadSaves = await env.DB.prepare("SELECT 1 AS x FROM pl_saves WHERE user_id=? LIMIT 1").bind(a.id).first();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(a.id),
     env.DB.prepare("DELETE FROM backups WHERE user_id=?").bind(a.id),
@@ -345,6 +350,15 @@ async function deleteAccount(req, env, a) {
     env.DB.prepare("DELETE FROM votes WHERE user_id=?").bind(a.id),
     // счётчики голосов пересобираются целиком (редкая операция), чтобы они сошлись с оставшимися голосами
     ...(hadVotes ? [env.DB.prepare("DELETE FROM vote_n"), env.DB.prepare("INSERT INTO vote_n(sid,n) SELECT sid, COUNT(*) FROM votes GROUP BY sid")] : []),
+    // публичные плейлисты уходят вместе с аккаунтом (с их сохранениями, жалобами и скрытием), его же сохранения и жалобы тоже
+    env.DB.prepare("DELETE FROM pl_saves WHERE code IN (SELECT code FROM pubpl WHERE user_id=?)").bind(a.id),
+    env.DB.prepare("DELETE FROM pl_reports WHERE code IN (SELECT code FROM pubpl WHERE user_id=?)").bind(a.id),
+    env.DB.prepare("DELETE FROM pl_hidden WHERE code IN (SELECT code FROM pubpl WHERE user_id=?)").bind(a.id),
+    env.DB.prepare("DELETE FROM pubpl WHERE user_id=?").bind(a.id),
+    env.DB.prepare("DELETE FROM pl_reports WHERE user_id=?").bind(a.id),
+    env.DB.prepare("DELETE FROM pl_saves WHERE user_id=?").bind(a.id),
+    env.DB.prepare("DELETE FROM profiles WHERE user_id=?").bind(a.id),
+    ...(hadSaves ? [env.DB.prepare("UPDATE pubpl SET saves=(SELECT COUNT(*) FROM pl_saves s WHERE s.code=pubpl.code)")] : []),
     env.DB.prepare("DELETE FROM suggestions WHERE user_id=? AND status<>'approved'").bind(a.id),
     env.DB.prepare("UPDATE suggestions SET user_id=NULL, nick='' WHERE user_id=?").bind(a.id),
     env.DB.prepare("DELETE FROM users WHERE id=?").bind(a.id)
@@ -468,6 +482,297 @@ async function report(req, env, ip, ctx, a) {
     if (ctx && ctx.waitUntil) ctx.waitUntil(job); else await job;
   }
   return J({ ok: true });
+}
+
+// ───────── Публичные плейлисты ─────────
+
+const PL_MAX = 5;                          // публичных плейлистов на аккаунт
+const PL_MIN_ITEMS = 3, PL_MAX_ITEMS = 300;
+const PL_PAGE = 20;
+const PUBLISH_PER_DAY = 12, PUBLISH_PER_DAY_FRESH = 4;   // публикаций и правок в сутки; у аккаунта младше недели меньше
+const CODE_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/;
+
+const mkPlCode = () => {
+  let s = "";
+  for (const x of crypto.getRandomValues(new Uint8Array(32))) if (x < 248 && s.length < 8) s += ALPHA[x % ALPHA.length];
+  return s.length === 8 ? s : mkPlCode();
+};
+const fmtCode = (c) => "VPP-" + c.slice(0, 4) + "-" + c.slice(4);
+
+/** Код из любой записи («VPP-ABCD-2345», «abcd2345», с пробелами) в 8 символов, а если не годится, пустая строка. */
+function plCode(v) {
+  let c = String(v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (c.length === 11 && c.startsWith("VPP")) c = c.slice(3);
+  return CODE_RE.test(c) ? c : "";
+}
+
+/** Состав: пары [id релиза, номер трека]. Повторы убираются. Возвращает {list} или {error}. */
+function plItems(v) {
+  if (!Array.isArray(v)) return { error: "items" };
+  if (v.length > PL_MAX_ITEMS) return { error: "many" };
+  const seen = new Set(), list = [];
+  for (const it of v) {
+    if (!Array.isArray(it) || it.length !== 2) return { error: "items" };
+    const [r, i] = it;
+    if (typeof r !== "string" || !/^[\w.-]{1,40}$/.test(r) || !Number.isInteger(i) || i < 0 || i > 999) return { error: "items" };
+    const k = r + ":" + i;
+    if (!seen.has(k)) { seen.add(k); list.push([r, i]); }
+  }
+  return list.length < PL_MIN_ITEMS ? { error: "few" } : { list };
+}
+
+const parseList = (s) => { try { const a = JSON.parse(s); return Array.isArray(a) ? a : []; } catch { return []; } };
+
+/** Плейлист, который можно показывать всем: автор не забанен и жалобы его не спрятали. */
+const livePl = (env, code) => env.DB.prepare(
+  "SELECT p.*, u.nick, COALESCE(pr.public,0) AS ppub, COALESCE(pr.av,0) AS av FROM pubpl p JOIN users u ON u.id=p.user_id AND u.banned=0 "
+  + "LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.code=? AND p.code NOT IN (SELECT code FROM pl_hidden)"
+).bind(code).first();
+
+/** Опубликовать плейлист или (с code) обновить свой. Приложение присылает название, описание, состав и номер обложки. */
+async function plPublish(req, env, ip, ctx, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const b = await body(req, 40000); if (!b) return J({ error: "json" }, 400);
+  const upd = b.code !== undefined && b.code !== null && b.code !== "";
+  let cur = null, code = "";
+  if (upd) {
+    code = plCode(b.code);
+    cur = code ? await env.DB.prepare("SELECT * FROM pubpl WHERE code=? AND user_id=?").bind(code, a.id).first() : null;
+    if (!cur) return J({ error: "gone" }, 404);
+  }
+  const name = clean(b.name, 40).replace(/\s*\n\s*/g, " "), descr = clean(b.desc, 140);
+  if ([...name].length < 2) return J({ error: "name" }, 400);
+  if (LINK_RE.test(name) || LINK_RE.test(descr)) return J({ error: "link" }, 400);
+  const its = plItems(b.items);
+  if (its.error) return J({ error: its.error, min: PL_MIN_ITEMS, max: PL_MAX_ITEMS }, 400);
+  const items = its.list;
+  const cvi = Number.isInteger(b.cvi) && b.cvi >= 0 && b.cvi < 64 ? b.cvi : 0;
+  if (!cur) {
+    const have = (await env.DB.prepare("SELECT COUNT(*) AS n FROM pubpl WHERE user_id=?").bind(a.id).first())?.n || 0;
+    if (have >= PL_MAX) return J({ error: "max", max: PL_MAX }, 409);
+  }
+  const day = Math.floor(now() / DAY), fresh = now() - a.created < 7 * DAY;
+  if (await hit(env, `pub:u:${a.id}:${day}`, fresh ? PUBLISH_PER_DAY_FRESH : PUBLISH_PER_DAY, DAY)) return J({ error: "limit" }, 429);
+  if (await hit(env, `pub:ip:${ip}:${day}`, 40, DAY)) return J({ error: "rate" }, 429);
+  const t = now(), prev = JSON.stringify(items.slice(0, 4)), all = JSON.stringify(items);
+  if (cur) {
+    await env.DB.prepare("UPDATE pubpl SET name=?,descr=?,n=?,cvi=?,updated=?,prev=?,items=? WHERE code=? AND user_id=?")
+      .bind(name, descr, items.length, cvi, t, prev, all, code, a.id).run();
+  } else {
+    for (let tries = 0; ; tries++) {
+      code = mkPlCode();
+      try {
+        await env.DB.prepare("INSERT INTO pubpl(code,user_id,name,descr,n,cvi,created,updated,prev,items) VALUES(?,?,?,?,?,?,?,?,?,?)")
+          .bind(code, a.id, name, descr, items.length, cvi, t, t, prev, all).run();
+        break;
+      } catch (e) {
+        if (tries < 5 && /UNIQUE|PRIMARY/i.test(String((e && e.message) || e))) continue;
+        throw e;
+      }
+    }
+  }
+  // Модератору приходит карточка о новом плейлисте и о смене названия или описания (правки только состава его не беспокоят)
+  if (!cur || cur.name !== name || cur.descr !== descr) {
+    const job = notifyPl(env, { code, name, descr, n: items.length, nick: a.nick, user_id: a.id }, cur ? "updated" : "new");
+    if (ctx && ctx.waitUntil) ctx.waitUntil(job); else await job;
+  }
+  return J({ ok: true, code, created: !cur, updated: t });
+}
+
+/** Убирает плейлист и всё, что к нему привязано. */
+const dropPl = (env, code) => env.DB.batch([
+  env.DB.prepare("DELETE FROM pl_saves WHERE code=?").bind(code),
+  env.DB.prepare("DELETE FROM pl_reports WHERE code=?").bind(code),
+  env.DB.prepare("DELETE FROM pl_hidden WHERE code=?").bind(code),
+  env.DB.prepare("DELETE FROM pubpl WHERE code=?").bind(code)
+]);
+
+/** Автор снимает свой плейлист с публикации (повторный вызов тоже отвечает ok). */
+async function plUnpublish(req, env, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const b = await body(req); if (!b) return J({ error: "json" }, 400);
+  const code = plCode(b.code); if (!code) return J({ error: "bad" }, 400);
+  const own = await env.DB.prepare("SELECT 1 AS x FROM pubpl WHERE code=? AND user_id=?").bind(code, a.id).first();
+  if (own) await dropPl(env, code);
+  return J({ ok: true, gone: !own });
+}
+
+/** Свои публичные плейлисты (с кодами) и сколько можно иметь. */
+async function plMine(env, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const rows = (await env.DB.prepare(
+    "SELECT p.code,p.name,p.descr,p.n,p.saves,p.cvi,p.created,p.updated,(h.code IS NOT NULL) AS hid FROM pubpl p LEFT JOIN pl_hidden h ON h.code=p.code WHERE p.user_id=? ORDER BY p.updated DESC, p.rowid DESC"
+  ).bind(a.id).all()).results || [];
+  return J({
+    max: PL_MAX,
+    items: rows.map(r => ({ code: r.code, name: r.name, desc: r.descr, n: r.n, saves: r.saves, cvi: r.cvi, created: r.created, updated: r.updated, hidden: !!r.hid }))
+  });
+}
+
+/** Открыть плейлист по коду: доступно без аккаунта. Если запрос с токеном, добавляются own и saved. */
+async function plGet(req, env, ip, code) {
+  if (await hit(env, "plr:" + ip, 300, 3600)) return J({ error: "rate" }, 429);
+  const p = code ? await livePl(env, code) : null;
+  if (!p) return J({ error: "gone" }, 404);
+  const me = req.headers.get("authorization") ? await authed(req, env) : null;
+  const o = {
+    code: p.code, name: p.name, desc: p.descr, nick: p.nick, pub: !!p.ppub, av: p.ppub ? p.av : 0,
+    n: p.n, saves: p.saves, cvi: p.cvi, created: p.created, updated: p.updated, items: parseList(p.items)
+  };
+  if (me && !me.banned) {
+    o.own = me.id === p.user_id;
+    o.saved = !!(await env.DB.prepare("SELECT 1 AS x FROM pl_saves WHERE code=? AND user_id=?").bind(p.code, me.id).first());
+  }
+  return J(o);
+}
+
+/** Общий список: sort=new (по умолчанию) или top (сохранённые хотя бы раз, по числу сохранений), by=ник, limit до 30, offset до 500. */
+async function plList(env, ip, u) {
+  if (await hit(env, "plr:" + ip, 300, 3600)) return J({ error: "rate" }, 429);
+  const top = u.searchParams.get("sort") === "top";
+  const limit = Math.min(Math.max(parseInt(u.searchParams.get("limit") || "", 10) || PL_PAGE, 1), 30);
+  const offset = Math.min(Math.max(parseInt(u.searchParams.get("offset") || "", 10) || 0, 0), 500);
+  const by = clean(u.searchParams.get("by") || "", 40).normalize("NFKC").toLowerCase();
+  const rows = (await env.DB.prepare(
+    "SELECT p.code,p.name,p.n,p.saves,p.cvi,p.created,p.prev,u.nick,COALESCE(pr.public,0) AS ppub,COALESCE(pr.av,0) AS av "
+    + "FROM pubpl p JOIN users u ON u.id=p.user_id AND u.banned=0 LEFT JOIN profiles pr ON pr.user_id=p.user_id "
+    + "WHERE p.code NOT IN (SELECT code FROM pl_hidden)" + (top ? " AND p.saves>0" : "") + (by ? " AND u.nick_lc=?" : "")
+    + (top ? " ORDER BY p.saves DESC, p.created DESC, p.rowid DESC" : " ORDER BY p.created DESC, p.rowid DESC") + " LIMIT ? OFFSET ?"
+  ).bind(...(by ? [by] : []), limit + 1, offset).all()).results || [];
+  return J({
+    more: rows.length > limit,
+    items: rows.slice(0, limit).map(r => ({
+      code: r.code, name: r.name, nick: r.nick, pub: !!r.ppub, av: r.ppub ? r.av : 0,
+      n: r.n, saves: r.saves, cvi: r.cvi, created: r.created, prev: parseList(r.prev)
+    }))
+  });
+}
+
+/** «Сохранить себе»: засчитывается один раз на аккаунт. Свой плейлист не считается. Автору приходит запись на 5, 10, 25, 50 и 100 сохранениях. */
+async function plSave(req, env, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const b = await body(req); if (!b) return J({ error: "json" }, 400);
+  const code = plCode(b.code); if (!code) return J({ error: "bad" }, 400);
+  if (await hit(env, "plsave:" + a.id, 60, 3600)) return J({ error: "rate" }, 429);
+  const p = await livePl(env, code);
+  if (!p) return J({ error: "gone" }, 404);
+  if (p.user_id === a.id) return J({ ok: true, own: true, saves: p.saves });
+  const r = await env.DB.prepare("INSERT OR IGNORE INTO pl_saves(code,user_id,created) VALUES(?,?,?)").bind(code, a.id, now()).run();
+  let saves = p.saves;
+  if (r.meta.changes) {
+    await env.DB.prepare("UPDATE pubpl SET saves=(SELECT COUNT(*) FROM pl_saves WHERE code=?) WHERE code=?").bind(code, code).run();
+    saves = (await env.DB.prepare("SELECT saves FROM pubpl WHERE code=?").bind(code).first())?.saves || 0;
+    if (MILESTONES.includes(saves)
+      && !(await env.DB.prepare("SELECT 1 AS x FROM inbox WHERE user_id=? AND kind='plsaved' AND k=? AND text=?").bind(p.user_id, code, String(saves)).first())) {
+      await addInbox(env, p.user_id, "plsaved", { k: code, tt: p.name }, String(saves));
+    }
+  }
+  return J({ ok: true, saves });
+}
+
+/** Жалоба на публичный плейлист: правила те же, что у заметок (одна на аккаунт, три разные прячут до решения модератора). */
+async function plReport(req, env, ip, ctx, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const b = await body(req); if (!b) return J({ error: "json" }, 400);
+  const code = plCode(b.code), why = WHY.includes(b.why) ? b.why : "";
+  if (!code || !why) return J({ error: "bad" }, 400);
+  const day = Math.floor(now() / DAY);
+  if (await hit(env, `rep:u:${a.id}:${day}`, 10, DAY)) return J({ error: "limit" }, 429);
+  if (await hit(env, `rep:ip:${ip}:${day}`, 40, DAY)) return J({ error: "rate" }, 429);
+  if (await hit(env, "rep:all:" + day, 500, DAY)) return J({ error: "cap" }, 429);
+  const p = await plRow(env, code);
+  if (!p) return J({ error: "gone" }, 404);
+  if (p.user_id === a.id) return J({ error: "own" }, 403);
+  const r = await env.DB.prepare("INSERT OR IGNORE INTO pl_reports(code,user_id,why,created) VALUES(?,?,?,?)").bind(code, a.id, why, now()).run();
+  if (!r.meta.changes) return J({ ok: true, dup: true });
+  const n = (await env.DB.prepare("SELECT COUNT(*) AS n FROM pl_reports WHERE code=? AND resolved=0").bind(code).first())?.n || 0;
+  let hide = false;
+  if (n >= HIDE_AT) hide = !!(await env.DB.prepare("INSERT OR IGNORE INTO pl_hidden(code,at) VALUES(?,?)").bind(code, now()).run()).meta.changes;
+  if (n === 1 || hide) {
+    const job = notifyPlReport(env, p, hide);
+    if (ctx && ctx.waitUntil) ctx.waitUntil(job); else await job;
+  }
+  return J({ ok: true });
+}
+
+/** Плейлист вместе с ником автора, как бы он ни был виден (для модератора и жалоб). */
+const plRow = (env, code) => env.DB.prepare("SELECT p.*, COALESCE(u.nick,'') AS nick FROM pubpl p LEFT JOIN users u ON u.id=p.user_id WHERE p.code=?").bind(code).first();
+
+/** Модератор убирает плейлист; автор узнаёт об этом во «Входящих». */
+async function removePl(env, code) {
+  const p = await plRow(env, code);
+  if (!p) return { gone: true };
+  await dropPl(env, code);
+  await addInbox(env, p.user_id, "plremoved", { k: code, tt: p.name });
+  return { p };
+}
+
+// ───────── Профиль ─────────
+
+const AV_MAX = 12;   // готовых цветов аватара (1..12), 0 — цвет по нику
+const monthOf = (t) => new Date(t * 1000).toISOString().slice(0, 7);
+
+/** Что человек сделал в приложении: из этого считаются значки. Скрытые жалобами заметки и плейлисты не считаются. */
+async function profileStats(env, uid) {
+  const n = (await env.DB.prepare("SELECT COUNT(*) AS n FROM suggestions WHERE user_id=? AND status='approved' AND id NOT IN (SELECT sid FROM hidden)").bind(uid).first())?.n || 0;
+  const h = (await env.DB.prepare(
+    "SELECT COALESCE(SUM(v.n),0) AS n FROM suggestions s JOIN vote_n v ON v.sid=s.id WHERE s.user_id=? AND s.status='approved' AND s.id NOT IN (SELECT sid FROM hidden)"
+  ).bind(uid).first())?.n || 0;
+  const p = await env.DB.prepare(
+    "SELECT COUNT(*) AS n, COALESCE(SUM(saves),0) AS s, COALESCE(MAX(saves),0) AS m FROM pubpl WHERE user_id=? AND code NOT IN (SELECT code FROM pl_hidden)"
+  ).bind(uid).first();
+  return { notes: n, helpful: h, playlists: p?.n || 0, saves: p?.s || 0, best: p?.m || 0 };
+}
+
+/** Значки считаются на лету, нигде не хранятся и пропадают вместе с тем, за что выданы. */
+function badgeList(s, trust) {
+  const b = [];
+  if (s.notes >= 1) b.push("note");
+  if (trust === "yes") b.push("trusted");
+  if (s.helpful >= 100) b.push("helpful3"); else if (s.helpful >= 50) b.push("helpful2"); else if (s.helpful >= 10) b.push("helpful1");
+  if (s.playlists >= 1) b.push("curator");
+  if (s.best >= 10) b.push("popular");
+  return b;
+}
+
+async function profileJson(env, uid, created) {
+  const st = await profileStats(env, uid);
+  const tr = await trustOf(env, uid);
+  return { since: monthOf(created), stats: { notes: st.notes, helpful: st.helpful, playlists: st.playlists, saves: st.saves }, badges: badgeList(st, tr.state) };
+}
+
+/** Свой профиль: открыт он или закрыт, цвет аватара и то, что увидят другие, если открыть. */
+async function profileGet(env, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const pr = await env.DB.prepare("SELECT public, av FROM profiles WHERE user_id=?").bind(a.id).first();
+  return J({ nick: a.nick, public: !!pr?.public, av: pr?.av || 0, ...(await profileJson(env, a.id, a.created)) });
+}
+
+/** Открыть или закрыть профиль и выбрать цвет аватара: можно прислать одно поле или оба. */
+async function profileSet(req, env, a) {
+  if (a.banned) return J({ error: "banned" }, 403);
+  const b = await body(req); if (!b) return J({ error: "json" }, 400);
+  if (b.public !== undefined && typeof b.public !== "boolean") return J({ error: "bad" }, 400);
+  if (b.av !== undefined && !(Number.isInteger(b.av) && b.av >= 0 && b.av <= AV_MAX)) return J({ error: "bad" }, 400);
+  if (await hit(env, "prof:" + a.id, 60, 3600)) return J({ error: "rate" }, 429);
+  const cur = await env.DB.prepare("SELECT public, av FROM profiles WHERE user_id=?").bind(a.id).first();
+  const pub = b.public === undefined ? (cur?.public || 0) : b.public ? 1 : 0;
+  const av = b.av === undefined ? (cur?.av || 0) : b.av;
+  await env.DB.prepare("INSERT OR REPLACE INTO profiles(user_id,public,av,updated) VALUES(?,?,?,?)").bind(a.id, pub, av, now()).run();
+  return J({ ok: true, public: !!pub, av });
+}
+
+/** Чужой профиль по нику: только открытый. Закрытый, несуществующий и забаненный выглядят одинаково (private). */
+async function profilePublic(env, ip, raw) {
+  if (await hit(env, "plr:" + ip, 300, 3600)) return J({ error: "rate" }, 429);
+  let nick = "";
+  try { nick = decodeURIComponent(raw).normalize("NFKC").trim().toLowerCase(); } catch { /* битая запись пути */ }
+  if (!nick || nick.length > 40) return J({ error: "private" }, 404);
+  const u = await env.DB.prepare(
+    "SELECT u.id,u.nick,u.created,u.banned,COALESCE(pr.public,0) AS pub,COALESCE(pr.av,0) AS av FROM users u LEFT JOIN profiles pr ON pr.user_id=u.id WHERE u.nick_lc=?"
+  ).bind(nick).first();
+  if (!u || u.banned || !u.pub) return J({ error: "private" }, 404);
+  return J({ nick: u.nick, av: u.av, ...(await profileJson(env, u.id, u.created)) });
 }
 
 // ───────── Предложения ─────────
@@ -618,6 +923,38 @@ async function notifyReport(env, s, hidden) {
   }
 }
 
+// Карточки публичных плейлистов. Новый: Delete / Ban author (после решения кнопок нет). Жалоба: Delete / Keep / Ban author.
+// Delete сначала просит подтвердить: pd → py (да) или pn (отмена); у карточки жалобы то же самое через px → pxy или pxn.
+function plCard(p, note = "") {
+  let t = `📻 <b>${esc(p.name)}</b> · ${esc(p.nick || "—")}\n🎧 ${p.n} tracks · <code>${fmtCode(p.code)}</code>`;
+  if (p.descr) t += `\n\n${esc(p.descr)}`;
+  if (note) t += "\n\n" + note;
+  return t;
+}
+const plKeyboard = (p) => ({ inline_keyboard: [[{ text: "🗑 Delete", callback_data: "pd:" + p.code }], ...(p.user_id ? [[{ text: "🚫 Ban author", callback_data: "b:" + p.user_id }]] : [])] });
+const plReportKeyboard = (p) => ({
+  inline_keyboard: [
+    [{ text: "🗑 Delete", callback_data: "px:" + p.code }, { text: "✅ Keep", callback_data: "pk:" + p.code }],
+    ...(p.user_id ? [[{ text: "🚫 Ban author", callback_data: "b:" + p.user_id }]] : [])
+  ]
+});
+const plSure = (code, yes, no) => ({ inline_keyboard: [[{ text: "🗑 Yes, delete", callback_data: yes + ":" + code }, { text: "↩️ Cancel", callback_data: no + ":" + code }]] });
+async function plReportCard(env, p, hidden) {
+  const rows = (await env.DB.prepare("SELECT why, COUNT(*) AS n FROM pl_reports WHERE code=? AND resolved=0 GROUP BY why ORDER BY n DESC").bind(p.code).all()).results || [];
+  const total = rows.reduce((x, r) => x + r.n, 0);
+  let t = "🚩 " + plCard(p) + `\n\nReports: ${total} (${rows.map(r => `${WHY_NAME[r.why] || esc(r.why)} ×${r.n}`).join(", ")})`;
+  if (hidden) t += "\n🙈 <b>Hidden</b> from the app until you decide";
+  return t;
+}
+async function notifyPl(env, p, kind) {
+  const text = plCard(p, kind === "updated" ? "✏️ <i>Name or description changed</i>" : ""), kb = plKeyboard(p);
+  for (const id of admins(env)) await tg(env, "sendMessage", { chat_id: id, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: kb });
+}
+async function notifyPlReport(env, p, hidden) {
+  const text = await plReportCard(env, p, hidden), kb = plReportKeyboard(p);
+  for (const id of admins(env)) await tg(env, "sendMessage", { chat_id: id, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: kb });
+}
+
 async function decide(env, id, status, extra = {}) {
   const s = await env.DB.prepare("SELECT * FROM suggestions WHERE id=?").bind(id).first();
   if (!s) return null;
@@ -731,6 +1068,28 @@ async function handleCallback(env, cq) {
     await markup({ inline_keyboard: kb });
     return answer(`Trust paused for ${u.nick}. /trust ${u.nick} brings it back.`);
   }
+  // Публичные плейлисты: pd/px спрашивают подтверждение, py/pxy удаляют, pn/pxn отменяют, pk закрывает жалобы и возвращает плейлист в список
+  if (["pd", "pn", "py", "px", "pxn", "pxy", "pk"].includes(op)) {
+    const code = plCode(raw);
+    const p = code ? await plRow(env, code) : null;
+    if (!p) { await markup(); return answer("Already deleted"); }
+    const report = op.startsWith("px") || op === "pk";
+    const text = (hidden) => report ? plReportCard(env, p, hidden) : plCard(p);
+    const edit = async (t, kb) => msg && tg(env, "editMessageText", { chat_id: msg.chat.id, message_id: msg.message_id, text: t, parse_mode: "HTML", disable_web_page_preview: true, ...(kb ? { reply_markup: kb } : {}) });
+    if (op === "pd" || op === "px") { await markup(plSure(code, op === "pd" ? "py" : "pxy", op === "pd" ? "pn" : "pxn")); return answer("Delete it from the app?"); }
+    if (op === "pn" || op === "pxn") { await markup(report ? plReportKeyboard(p) : plKeyboard(p)); return answer("Cancelled"); }
+    if (op === "pk") {
+      const t = await text(false);
+      await env.DB.prepare("UPDATE pl_reports SET resolved=1 WHERE code=?").bind(code).run();
+      const h = await env.DB.prepare("DELETE FROM pl_hidden WHERE code=?").bind(code).run();
+      await edit(t + "\n\n✅ <b>Kept</b> — reports closed");
+      return answer(h.meta.changes ? "Kept, visible in the app again" : "Kept");
+    }
+    const t = await text(false);
+    await removePl(env, code);
+    await edit(t + "\n\n🗑 <b>Deleted</b> — it is gone from the app");
+    return answer("Deleted");
+  }
   return answer("?");
 }
 
@@ -761,7 +1120,7 @@ async function handleMessage(env, m) {
   const findUser = () => env.DB.prepare("SELECT * FROM users WHERE nick_lc=?").bind(arg).first();
   switch (cmd.toLowerCase().replace(/@\w+$/, "")) {
     case "/help":
-      return say("/pending — suggestions waiting for review\n/approved [nick] — published notes, each with a Delete button\n/reports — published notes people reported\n/stats — counters\n/user nick — account info\n/trust nick · /untrust nick — let someone publish at once, or pause that\n/ban nick · /unban nick\n\nOn a suggestion card: Approve, Reject, or reply with new text to edit and approve (“/no reason” rejects with a note). An approved note keeps a 🗑 Delete button (it asks to confirm) that removes it from the app.\n\nAfter 3 approved notes an author is trusted: new notes without links go live at once (up to 5 a day), you get a card with Delete and Pause trust. Three different reports hide a note from the app until you press Keep or Delete.");
+      return say("/pending — suggestions waiting for review\n/approved [nick] — published notes, each with a Delete button\n/reports — published notes and playlists people reported\n/playlists [nick] — public playlists, each with a Delete button\n/stats — counters\n/user nick — account info\n/trust nick · /untrust nick — let someone publish at once, or pause that\n/ban nick · /unban nick\n\nOn a suggestion card: Approve, Reject, or reply with new text to edit and approve (“/no reason” rejects with a note). An approved note keeps a 🗑 Delete button (it asks to confirm) that removes it from the app.\n\nAfter 3 approved notes an author is trusted: new notes without links go live at once (up to 5 a day), you get a card with Delete and Pause trust. Three different reports hide a note from the app until you press Keep or Delete.\n\nPublic playlists go live at once and you get a card with Delete (it asks to confirm) and Ban author. Three different reports hide a playlist until you press Keep or Delete; a banned author's playlists disappear from the app until you /unban.");
     case "/stats": {
       const c = await env.DB.prepare("SELECT SUM(status='pending') AS p, SUM(status='approved') AS a, SUM(status='rejected') AS r FROM suggestions").first();
       const u = await env.DB.prepare("SELECT COUNT(*) AS n, SUM(banned) AS b FROM users").first();
@@ -772,7 +1131,11 @@ async function handleMessage(env, m) {
       const vt = await env.DB.prepare("SELECT COUNT(*) AS n FROM votes").first();
       const rp = await env.DB.prepare("SELECT COUNT(DISTINCT sid) AS n FROM reports WHERE resolved=0").first();
       const hd = await env.DB.prepare("SELECT COUNT(*) AS n FROM hidden").first();
-      return say(`Users: ${u?.n || 0} (banned ${u?.b || 0})\nPending: ${c?.p || 0} · Approved: ${c?.a || 0} · Rejected: ${c?.r || 0}\nTrusted authors: ${tu?.n || 0} · Helpful votes: ${vt?.n || 0}\nOpen reports: ${rp?.n || 0} (hidden ${hd?.n || 0})\nCloud backups: ${bk?.n || 0} (${((bk?.s || 0) / 1048576).toFixed(1)} MB of ${(BACKUP_POOL / 1048576).toFixed(0)} MB)`);
+      const pl = await env.DB.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(saves),0) AS s FROM pubpl").first();
+      const pp = await env.DB.prepare("SELECT COUNT(*) AS n FROM profiles WHERE public=1").first();
+      const pr = await env.DB.prepare("SELECT COUNT(DISTINCT code) AS n FROM pl_reports WHERE resolved=0").first();
+      const ph = await env.DB.prepare("SELECT COUNT(*) AS n FROM pl_hidden").first();
+      return say(`Users: ${u?.n || 0} (banned ${u?.b || 0})\nPending: ${c?.p || 0} · Approved: ${c?.a || 0} · Rejected: ${c?.r || 0}\nTrusted authors: ${tu?.n || 0} · Helpful votes: ${vt?.n || 0}\nOpen reports: ${rp?.n || 0} (hidden ${hd?.n || 0})\nPublic playlists: ${pl?.n || 0} (saves ${pl?.s || 0}) · Open playlist reports: ${pr?.n || 0} (hidden ${ph?.n || 0})\nPublic profiles: ${pp?.n || 0}\nCloud backups: ${bk?.n || 0} (${((bk?.s || 0) / 1048576).toFixed(1)} MB of ${(BACKUP_POOL / 1048576).toFixed(0)} MB)`);
     }
     case "/pending": {
       const rows = (await env.DB.prepare("SELECT * FROM suggestions WHERE status='pending' ORDER BY id ASC LIMIT 10").all()).results || [];
@@ -797,8 +1160,10 @@ async function handleMessage(env, m) {
       const c = await env.DB.prepare("SELECT SUM(status='pending') AS p, SUM(status='approved') AS a, SUM(status='rejected') AS r FROM suggestions WHERE user_id=?").bind(u.id).first();
       const bk = await env.DB.prepare("SELECT size, updated FROM backups WHERE user_id=?").bind(u.id).first();
       const tr = await trustOf(env, u.id, c?.a || 0);
+      const pn = (await env.DB.prepare("SELECT COUNT(*) AS n FROM pubpl WHERE user_id=?").bind(u.id).first())?.n || 0;
+      const pf = await env.DB.prepare("SELECT public FROM profiles WHERE user_id=?").bind(u.id).first();
       const trust = tr.state === "yes" ? (tr.manual ? "trusted (set by you)" : "trusted") : tr.state === "paused" ? "paused" : `not yet (${tr.have} of ${tr.need} approved)`;
-      return say(`${esc(u.nick)} (#${u.id})${u.banned ? " · banned" : ""}\nJoined: ${new Date(u.created * 1000).toISOString().slice(0, 10)}\nPending ${c?.p || 0} · Approved ${c?.a || 0} · Rejected ${c?.r || 0}\nTrust: ${trust}\nCloud backup: ${bk ? Math.ceil(bk.size / 1024) + " KB, " + new Date(bk.updated).toISOString().slice(0, 10) : "none"}`);
+      return say(`${esc(u.nick)} (#${u.id})${u.banned ? " · banned" : ""}\nJoined: ${new Date(u.created * 1000).toISOString().slice(0, 10)}\nPending ${c?.p || 0} · Approved ${c?.a || 0} · Rejected ${c?.r || 0}\nTrust: ${trust}\nPublic playlists: ${pn} · Profile: ${pf?.public ? "public" : "private"}\nCloud backup: ${bk ? Math.ceil(bk.size / 1024) + " KB, " + new Date(bk.updated).toISOString().slice(0, 10) : "none"}`);
     }
     case "/trust": case "/untrust": {
       const u = await findUser();
@@ -812,8 +1177,24 @@ async function handleMessage(env, m) {
         "SELECT s.*, (SELECT COUNT(*) FROM reports r WHERE r.sid=s.id AND r.resolved=0) AS rn, EXISTS(SELECT 1 FROM hidden h WHERE h.sid=s.id) AS hid "
         + "FROM suggestions s WHERE s.status='approved' AND EXISTS (SELECT 1 FROM reports r WHERE r.sid=s.id AND r.resolved=0) ORDER BY rn DESC, s.id DESC LIMIT 10"
       ).all()).results || [];
-      if (!rows.length) return say("No open reports.");
+      const pls = (await env.DB.prepare(
+        "SELECT p.*, COALESCE(u.nick,'') AS nick, (SELECT COUNT(*) FROM pl_reports r WHERE r.code=p.code AND r.resolved=0) AS rn, EXISTS(SELECT 1 FROM pl_hidden h WHERE h.code=p.code) AS hid "
+        + "FROM pubpl p LEFT JOIN users u ON u.id=p.user_id WHERE EXISTS (SELECT 1 FROM pl_reports r WHERE r.code=p.code AND r.resolved=0) ORDER BY rn DESC, p.created DESC LIMIT 10"
+      ).all()).results || [];
+      if (!rows.length && !pls.length) return say("No open reports.");
       for (const s of rows) await say(await reportCard(env, s, !!s.hid), { reply_markup: reportKeyboard(s, await isTrusted(env, s)) });
+      for (const p of pls) await say(await plReportCard(env, p, !!p.hid), { reply_markup: plReportKeyboard(p) });
+      return;
+    }
+    case "/playlists": {
+      // Публичные плейлисты: последние 10 (можно только одного автора), у каждого кнопка Delete. Новые внизу, ближе к полю ввода.
+      const from = arg ? "FROM pubpl p JOIN users u ON u.id = p.user_id WHERE u.nick_lc=?" : "FROM pubpl p LEFT JOIN users u ON u.id = p.user_id";
+      const q = (sql) => (arg ? env.DB.prepare(sql).bind(arg) : env.DB.prepare(sql));
+      const rows = ((await q(`SELECT p.*, COALESCE(u.nick,'') AS nick ${from} ORDER BY p.created DESC LIMIT 10`).all()).results || []).reverse();
+      if (!rows.length) return say(arg ? "No public playlists from that nickname." : "No public playlists.");
+      for (const p of rows) await say(plCard(p), { reply_markup: plKeyboard(p) });
+      const total = (await q(`SELECT COUNT(*) AS n ${from}`).first())?.n || 0;
+      if (total > rows.length) await say(`Showing the latest ${rows.length} of ${total}. Delete some and send /playlists again for the rest.`);
       return;
     }
     case "/ban": case "/unban": {
@@ -844,7 +1225,7 @@ async function tgHook(req, env) {
 /** Возвращает Response для маршрутов сообщества или null, если путь не наш. */
 export async function community(req, env, ctx) {
   const u = new URL(req.url), p = u.pathname, m = req.method;
-  const ours = p.startsWith("/a/") || p === "/s" || p === "/s/mine" || p === "/tg" || p === "/stories/overlay";
+  const ours = p.startsWith("/a/") || p === "/s" || p === "/s/mine" || p === "/tg" || p === "/stories/overlay" || p === "/pl" || p.startsWith("/pl/") || p.startsWith("/u/");
   if (!ours) return null;
   if (!env.DB) return p === "/tg" ? J({ ok: true }) : J({ error: "off" }, 503);
   const ip = req.headers.get("cf-connecting-ip") || "0";
@@ -852,6 +1233,10 @@ export async function community(req, env, ctx) {
     if (p === "/tg" && m === "POST") return await tgHook(req, env);
     if (p === "/stories/overlay" && m === "GET") return await overlay(env, u);
     if (m !== "POST" && m !== "GET") return J({ error: "method" }, 405);
+    // Читать публичные плейлисты и открытые профили можно без аккаунта
+    if (m === "GET" && p === "/pl") return await plList(env, ip, u);
+    if (m === "GET" && p.startsWith("/pl/")) { let c = ""; try { c = plCode(decodeURIComponent(p.slice(4))); } catch { /* битая запись пути */ } return await plGet(req, env, ip, c); }
+    if (m === "GET" && p.startsWith("/u/")) return await profilePublic(env, ip, p.slice(3));
     if (m === "POST" && p === "/a/register") return await register(req, env, ip);
     if (m === "POST" && p === "/a/login") return await login(req, env, ip);
     if (m === "POST" && p === "/a/reset") return await reset(req, env, ip);
@@ -869,6 +1254,13 @@ export async function community(req, env, ctx) {
     if (p === "/a/vote" && m === "POST") return await vote(req, env, a);
     if (p === "/a/votes" && m === "GET") return await myVotes(env, a);
     if (p === "/a/report" && m === "POST") return await report(req, env, ip, ctx, a);
+    if (p === "/a/pl" && m === "POST") return await plPublish(req, env, ip, ctx, a);
+    if (p === "/a/pl/del" && m === "POST") return await plUnpublish(req, env, a);
+    if (p === "/a/pl/mine" && m === "GET") return await plMine(env, a);
+    if (p === "/a/pl/save" && m === "POST") return await plSave(req, env, a);
+    if (p === "/a/pl/report" && m === "POST") return await plReport(req, env, ip, ctx, a);
+    if (p === "/a/profile" && m === "GET") return await profileGet(env, a);
+    if (p === "/a/profile" && m === "POST") return await profileSet(req, env, a);
     if (p === "/s" && m === "POST") return await suggest(req, env, ip, ctx, a);
     if (p === "/s/mine" && m === "GET") return await mine(env, a);
     return J({ error: "none" }, 404);

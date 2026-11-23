@@ -115,3 +115,55 @@ CREATE TABLE IF NOT EXISTS hidden (
   sid INTEGER PRIMARY KEY,
   at INTEGER NOT NULL
 );
+
+-- Публичные плейлисты. code: 8 символов (в приложении показывается как VPP-XXXX-XXXX). items: JSON [[id релиза, номер трека], ...].
+-- prev: первые четыре трека для обложки в списке, чтобы список не тащил весь состав. saves: сколько разных аккаунтов сохранили себе.
+CREATE TABLE IF NOT EXISTS pubpl (
+  code TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  descr TEXT NOT NULL DEFAULT '',
+  n INTEGER NOT NULL DEFAULT 0,
+  saves INTEGER NOT NULL DEFAULT 0,
+  cvi INTEGER NOT NULL DEFAULT 0,
+  created INTEGER NOT NULL,
+  updated INTEGER NOT NULL,
+  prev TEXT NOT NULL DEFAULT '[]',
+  items TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS pubpl_user ON pubpl(user_id, updated);
+CREATE INDEX IF NOT EXISTS pubpl_new ON pubpl(created);
+CREATE INDEX IF NOT EXISTS pubpl_top ON pubpl(saves, created);
+
+-- «Сохранить себе»: один раз на аккаунт и плейлист, из этого считается saves.
+CREATE TABLE IF NOT EXISTS pl_saves (
+  code TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  created INTEGER NOT NULL,
+  PRIMARY KEY (code, user_id)
+);
+CREATE INDEX IF NOT EXISTS pl_saves_user ON pl_saves(user_id);
+
+-- Жалобы на публичные плейлисты и скрытые из-за них: так же, как у заметок (три разные жалобы прячут до решения модератора).
+CREATE TABLE IF NOT EXISTS pl_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
+  why TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  resolved INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (code, user_id)
+);
+CREATE INDEX IF NOT EXISTS pl_reports_open ON pl_reports(code, resolved);
+CREATE TABLE IF NOT EXISTS pl_hidden (
+  code TEXT PRIMARY KEY,
+  at INTEGER NOT NULL
+);
+
+-- Профиль: по умолчанию закрыт. Запись появляется, когда человек сам что-то выбрал. av: готовый цвет аватара, 0 — по нику.
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id INTEGER PRIMARY KEY,
+  public INTEGER NOT NULL DEFAULT 0,
+  av INTEGER NOT NULL DEFAULT 0,
+  updated INTEGER NOT NULL
+);

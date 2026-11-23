@@ -861,3 +861,482 @@ test("удаление аккаунта убирает его голоса, жа
   assert.equal(ov.notes["rel-1:0"][0].by, "");
   assert.deepEqual(ov.votes, { 1: 1 });
 });
+
+// ───────── Публичные плейлисты и профиль ─────────
+
+const ITEMS = (n = 4) => Array.from({ length: n }, (_, i) => ["rel-" + i, i]);
+const PUB = (over = {}) => ({ name: "Late night drive", desc: "Slow songs for the road home.", items: ITEMS(4), cvi: 2, ...over });
+/** Аккаунт старше недели: у новых публикаций в сутки меньше. */
+const age = (w) => w.env.DB.prepare("UPDATE users SET created=created-864000").run();
+const publish = async (w, token, over) => (await w.call("POST", "/a/pl", PUB(over), token)).json.code;
+
+test("публичные плейлисты: проверки полей, создание, правка только своего, карточка модератору, лимиты", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json, b = (await w.reg("Fan_Two", "secret123", "2.2.2.2")).json;
+  await age(w);
+  const pub = (t, o) => w.call("POST", "/a/pl", PUB(o), t);
+
+  assert.equal((await w.call("POST", "/a/pl", PUB())).status, 401);
+  for (const [over, err] of [
+    [{ name: "x" }, "name"], [{ name: "   " }, "name"], [{ name: "Listen at example.com" }, "link"], [{ desc: "see https://t.me/x" }, "link"],
+    [{ items: undefined }, "items"], [{ items: "no" }, "items"], [{ items: [["rel-1", "x"], ["rel-2", 1], ["rel-3", 2]] }, "items"], [{ items: [["bad rel!", 1], ["a", 1], ["b", 1]] }, "items"],
+    [{ items: [["rel-1", 1, 5], ["a", 1], ["b", 1]] }, "items"], [{ items: [["rel-1", -1], ["a", 1], ["b", 1]] }, "items"],
+    [{ items: ITEMS(2) }, "few"], [{ items: [] }, "few"], [{ items: [["a", 1], ["a", 1], ["a", 1], ["b", 2]] }, "few"],   // повторы не считаются
+    [{ items: ITEMS(301) }, "many"]
+  ]) {
+    const r = await pub(a.token, over);
+    assert.deepEqual([r.status, r.json.error], [400, err], JSON.stringify(over).slice(0, 60));
+  }
+  assert.equal(await m.count("pubpl"), 0);
+  assert.equal(w.calls.filter(c => c.method === "sendMessage").length, 0);          // отказанное модератору не доходит
+
+  // создание: код из 8 символов, карточка модератору с названием, составом, кодом и кнопками
+  let n = w.calls.length;
+  const r = await pub(a.token);
+  assert.equal(r.status, 200);
+  const code = r.json.code;
+  assert.match(code, /^[A-HJKMNP-Z2-9]{8}$/);
+  assert.equal(r.json.created, true);
+  let cs = m.cards(n);
+  assert.equal(cs.length, 1);
+  assert.match(cs[0].text, /^📻 <b>Late night drive<\/b> · Fan_One\n🎧 4 tracks · <code>VPP-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}<\/code>\n\nSlow songs for the road home\.$/);
+  assert.deepEqual(m.kb(cs[0]), [["pd:" + code], ["b:" + a.id]]);
+  const row = await w.env.DB.prepare("SELECT * FROM pubpl WHERE code=?").bind(code).first();
+  assert.deepEqual([row.user_id, row.name, row.descr, row.n, row.cvi, row.saves], [a.id, "Late night drive", "Slow songs for the road home.", 4, 2, 0]);
+  assert.deepEqual(JSON.parse(row.items), ITEMS(4));
+  assert.deepEqual(JSON.parse(row.prev), ITEMS(4));
+
+  // HTML в названии не попадает в карточку как разметка; управляющие символы и переводы строк чистятся
+  n = w.calls.length;
+  await pub(a.token, { name: "<b>Hi</b> &\n‮friends", desc: "" });
+  cs = m.cards(n);
+  assert.match(cs[0].text, /^📻 <b>&lt;b&gt;Hi&lt;\/b&gt; &amp; friends<\/b> · Fan_One/);
+  assert.doesNotMatch(cs[0].text, /‮/);
+
+  // правка своего: состав без смены названия и описания модератора не беспокоит, смена названия шлёт карточку с пометкой
+  n = w.calls.length;
+  const u1 = await pub(a.token, { code, items: ITEMS(6) });
+  assert.deepEqual([u1.status, u1.json.ok, u1.json.created, u1.json.code], [200, true, false, code]);
+  assert.equal(m.cards(n).length, 0);
+  assert.equal((await w.call("GET", "/pl/" + code)).json.n, 6);
+  assert.equal((await w.call("GET", "/pl/" + code)).json.items.length, 6);
+  n = w.calls.length;
+  await pub(a.token, { code: code.toLowerCase(), name: "Night drive v2" });
+  cs = m.cards(n);
+  assert.equal(cs.length, 1);
+  assert.match(cs[0].text, /Night drive v2/);
+  assert.match(cs[0].text, /✏️ <i>Name or description changed<\/i>/);
+  assert.equal((await w.call("GET", "/pl/" + code)).json.name, "Night drive v2");
+  // чужой плейлист и несуществующий код править нельзя
+  assert.equal((await pub(b.token, { code })).status, 404);
+  assert.equal((await pub(a.token, { code: "nonsense" })).status, 404);
+  assert.equal((await pub(a.token, { code: "ZZZZZZZZ" })).status, 404);
+  assert.equal((await w.call("GET", "/pl/" + code)).json.name, "Night drive v2");
+
+  // не больше пяти публичных плейлистов на аккаунт; отказ не тратит суточный лимит
+  for (let i = 0; i < 3; i++) assert.equal((await pub(a.token, { name: "List " + i })).status, 200);
+  assert.equal(await m.count("pubpl"), 5);
+  const six = await pub(a.token, { name: "One too many" });
+  assert.deepEqual([six.status, six.json.error, six.json.max], [409, "max", 5]);
+  assert.equal((await pub(b.token, { name: "Other author" })).status, 200);
+
+  // у нового аккаунта публикаций и правок в сутки меньше (4)
+  const c = (await w.reg("Fresh_Fan", "secret123", "3.3.3.3")).json;
+  const sts = [];
+  for (let i = 0; i < 5; i++) sts.push((await pub(c.token, { name: "Fresh " + i })).status);
+  assert.deepEqual(sts, [200, 200, 200, 200, 429]);
+  assert.equal((await pub(c.token, { name: "Fresh 9" })).json.error, "limit");
+
+  // старый клиент без поддержки (нет базы): маршруты отвечают off
+  const off = world({ db: false });
+  assert.deepEqual([(await off.call("GET", "/pl")).status, (await off.call("GET", "/u/x")).status, (await off.call("GET", "/pl/" + code)).json.error], [503, 503, "off"]);
+});
+
+test("публичные плейлисты: чтение без аккаунта, код в любой записи, список по новизне и популярности, фильтр по автору, страницы, скрытое не видно", async () => {
+  const w = world();
+  const a = (await w.reg("Fan_One")).json, b = (await w.reg("Fan_Two", "secret123", "2.2.2.2")).json;
+  await age(w);
+  const codes = [];
+  for (const [t, name] of [[a.token, "First"], [a.token, "Second"], [b.token, "Third"]]) codes.push(await publish(w, t, { name }));
+  for (const [i, c] of codes.entries()) await w.env.DB.prepare("UPDATE pubpl SET created=? WHERE code=?").bind(1000 + i, c).run();
+  const list = async (q = "") => (await w.call("GET", "/pl" + q)).json;
+
+  assert.deepEqual((await list()).items.map(i => i.name), ["Third", "Second", "First"]);
+  const first = (await list()).items[2];
+  assert.deepEqual(Object.keys(first).sort(), ["av", "code", "created", "cvi", "n", "name", "nick", "prev", "pub", "saves"]);
+  assert.deepEqual([first.nick, first.n, first.saves, first.cvi, first.pub, first.av, first.code], ["Fan_One", 4, 0, 2, false, 0, codes[0]]);
+  assert.deepEqual(first.prev, ITEMS(4));
+  // в списке нет полного состава и описания: он грузится только при открытии
+  assert.equal(first.items, undefined);
+  assert.equal(first.desc, undefined);
+  assert.equal((await list("?limit=2")).more, true);
+  assert.deepEqual((await list("?limit=2&offset=2")).items.map(i => i.name), ["First"]);
+  assert.equal((await list("?limit=2&offset=2")).more, false);
+  assert.deepEqual((await list("?by=FAN_ONE")).items.map(i => i.name), ["Second", "First"]);
+  assert.deepEqual((await list("?by=nobody")).items, []);
+  assert.equal((await list("?limit=0")).items.length, 3);                      // мусор в параметрах не ломает ответ
+  assert.equal((await list("?limit=abc&offset=-5")).items.length, 3);
+  assert.deepEqual((await list("?sort=top")).items, []);                       // «Популярные»: только те, что кто-то сохранил
+
+  // открыть по коду в любой записи
+  const d = (await w.call("GET", "/pl/" + codes[0])).json;
+  assert.deepEqual([d.name, d.desc, d.nick, d.n, d.saves, d.cvi, d.pub, d.av], ["First", "Slow songs for the road home.", "Fan_One", 4, 0, 2, false, 0]);
+  assert.deepEqual(d.items, ITEMS(4));
+  assert.equal(d.own, undefined);
+  assert.equal(d.saved, undefined);
+  const c = codes[0];
+  for (const form of [c.toLowerCase(), "VPP-" + c.slice(0, 4) + "-" + c.slice(4), "vpp" + c, c.slice(0, 4) + "%20" + c.slice(4), "vpp-" + c.toLowerCase()]) {
+    assert.equal((await w.call("GET", "/pl/" + form)).json.name, "First", form);
+  }
+  for (const bad of ["ZZZZZZZZ", "short", "VPP-ABCD", "%E0%A4%A", "ABCDEFG0", "ABCDEFGI"]) {
+    const r = await w.call("GET", "/pl/" + bad);
+    assert.deepEqual([r.status, r.json.error], [404, "gone"], bad);
+  }
+  // с токеном добавляются own и saved; устаревший токен считается гостем
+  const da = (await w.call("GET", "/pl/" + c, undefined, a.token)).json, db = (await w.call("GET", "/pl/" + c, undefined, b.token)).json;
+  assert.deepEqual([da.own, da.saved, db.own, db.saved], [true, false, false, false]);
+  assert.equal((await w.call("GET", "/pl/" + c, undefined, "x".repeat(43))).json.own, undefined);
+
+  // скрытые жалобами и плейлисты забаненных авторов ни в списке, ни по коду не видны
+  await w.env.DB.prepare("INSERT INTO pl_hidden(code,at) VALUES(?,1)").bind(codes[1]).run();
+  assert.deepEqual((await list()).items.map(i => i.name), ["Third", "First"]);
+  assert.equal((await w.call("GET", "/pl/" + codes[1])).status, 404);
+  await w.env.DB.prepare("UPDATE users SET banned=1 WHERE id=?").bind(b.id).run();
+  assert.deepEqual((await list()).items.map(i => i.name), ["First"]);
+  assert.equal((await w.call("GET", "/pl/" + codes[2])).status, 404);
+  await w.env.DB.prepare("UPDATE users SET banned=0 WHERE id=?").bind(b.id).run();
+  assert.equal((await list()).items.length, 2);
+
+  // чтение не больше 300 раз в час с одного адреса
+  const codes2 = [];
+  for (let i = 0; i < 305; i++) codes2.push((await w.call("GET", "/pl/" + c, undefined, undefined, "6.6.6.6")).status);
+  assert.equal(codes2.filter(x => x === 429).length > 0, true);
+  assert.equal((await w.call("GET", "/pl/" + c, undefined, undefined, "6.6.6.7")).status, 200);
+});
+
+test("сохранения плейлиста: один раз на аккаунт, свой не считается, популярные в top, запись автору на 5 сохранениях", async () => {
+  const w = world();
+  const a = (await w.reg("Fan_One")).json;
+  await age(w);
+  const c1 = await publish(w, a.token, { name: "Few saves" }), c2 = await publish(w, a.token, { name: "Many saves" });
+  const vs = [];
+  for (let i = 1; i <= 5; i++) vs.push((await w.reg("Saver" + i, "secret123", "8.8.8." + i)).json);
+  const save = (t, code = c2) => w.call("POST", "/a/pl/save", { code }, t);
+  const kinds = async () => (await w.call("GET", "/a/inbox", undefined, a.token)).json.items.filter(i => i.kind === "plsaved");
+
+  assert.equal((await w.call("POST", "/a/pl/save", { code: c2 })).status, 401);
+  assert.equal((await save(vs[0].token, "bad")).json.error, "bad");
+  assert.equal((await save(vs[0].token, "ZZZZZZZZ")).json.error, "gone");
+  assert.deepEqual((await save(a.token)).json, { ok: true, own: true, saves: 0 });
+  assert.deepEqual((await save(vs[0].token)).json, { ok: true, saves: 1 });
+  assert.deepEqual((await save(vs[0].token, c2.toLowerCase())).json, { ok: true, saves: 1 });   // повтор ничего не меняет
+  await save(vs[0].token, c1);
+  for (const x of vs.slice(1, 4)) await save(x.token);
+  assert.equal((await kinds()).length, 0);
+  assert.equal((await save(vs[4].token)).json.saves, 5);
+  assert.deepEqual((await kinds()).map(i => [i.text, i.k, i.tt, i.ref]), [["5", c2, "Many saves", 0]]);
+  await save(vs[4].token);
+  assert.equal((await kinds()).length, 1);                                                    // повтором запись не размножить
+
+  const top = (await w.call("GET", "/pl?sort=top")).json.items;
+  assert.deepEqual(top.map(i => [i.name, i.saves]), [["Many saves", 5], ["Few saves", 1]]);
+  assert.deepEqual((await w.call("GET", "/pl")).json.items.map(i => i.saves).sort(), [1, 5]);
+  const dd = (await w.call("GET", "/pl/" + c2, undefined, vs[0].token)).json;
+  assert.deepEqual([dd.saves, dd.saved, dd.own], [5, true, false]);
+  assert.equal(await (async () => (await w.env.DB.prepare("SELECT COUNT(*) AS n FROM pl_saves").first()).n)(), 6);
+
+  // не больше 60 сохранений в час с одного аккаунта (счёт идёт и по несуществующим кодам)
+  const sts = [];
+  for (let i = 0; i < 65; i++) sts.push((await save(vs[1].token, "ZZZZZZZZ")).status);
+  assert.equal(sts.filter(s => s === 429).length > 0, true);
+});
+
+test("жалобы на плейлисты: карточка, одна на аккаунт, три прячут из списка, Keep возвращает, Delete с подтверждением и записью автору", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json;
+  await age(w);
+  const rs = [];
+  for (let i = 1; i <= 5; i++) rs.push((await w.reg("Reporter" + i, "secret123", "4.4.4." + i)).json);
+  const code = await publish(w, a.token, { name: "Spammy list" });
+  await publish(w, a.token, { name: "Fine list" });
+  const rep = (t, c = code, why = "spam") => w.call("POST", "/a/pl/report", { code: c, why }, t);
+  const keyboard = [["px:" + code, "pk:" + code], ["b:" + a.id]];
+  const names = async () => (await w.call("GET", "/pl")).json.items.map(i => i.name).sort();
+
+  assert.equal((await w.call("POST", "/a/pl/report", { code, why: "spam" })).status, 401);
+  assert.equal((await rep(a.token)).json.error, "own");
+  assert.equal((await rep(rs[0].token, "ZZZZZZZZ")).json.error, "gone");
+  assert.equal((await rep(rs[0].token, code, "because")).json.error, "bad");
+  assert.equal((await rep(rs[0].token, "bad")).json.error, "bad");
+  assert.equal((await w.call("POST", "/a/pl/report", { why: "spam" }, rs[0].token)).json.error, "bad");
+
+  // первая жалоба: карточка с причиной и кнопками
+  let n = w.calls.length;
+  assert.deepEqual((await rep(rs[0].token)).json, { ok: true });
+  let cs = m.cards(n);
+  assert.equal(cs.length, 1);
+  assert.match(cs[0].text, /^🚩 📻 <b>Spammy list<\/b> · Fan_One\n🎧 4 tracks · <code>VPP-/);
+  assert.match(cs[0].text, /Reports: 1 \(spam ×1\)/);
+  assert.deepEqual(m.kb(cs[0]), keyboard);
+
+  // повтор с того же аккаунта игнорируется, вторая жалоба карточку не шлёт и плейлист не прячет
+  n = w.calls.length;
+  assert.deepEqual((await rep(rs[0].token)).json, { ok: true, dup: true });
+  assert.deepEqual((await rep(rs[1].token, code, "offensive")).json, { ok: true });
+  assert.equal(m.cards(n).length, 0);
+  assert.deepEqual(await names(), ["Fine list", "Spammy list"]);
+
+  // третья прячет из списка и шлёт вторую карточку; по коду плейлист тоже не открывается, сохранить и проголосовать нельзя
+  n = w.calls.length;
+  assert.deepEqual((await rep(rs[2].token, code, "wrong")).json, { ok: true });
+  cs = m.cards(n);
+  assert.equal(cs.length, 1);
+  assert.match(cs[0].text, /Reports: 3 \(.*spam ×1.*\)/);
+  assert.match(cs[0].text, /🙈 <b>Hidden<\/b>/);
+  assert.deepEqual(await names(), ["Fine list"]);
+  assert.equal((await w.call("GET", "/pl/" + code)).status, 404);
+  assert.equal((await w.call("POST", "/a/pl/save", { code }, rs[3].token)).json.error, "gone");
+  const mine = (await w.call("GET", "/a/pl/mine", undefined, a.token)).json.items.find(i => i.code === code);
+  assert.equal(mine.hidden, true);                                      // автор видит, что плейлист спрятан
+  n = w.calls.length;
+  await rep(rs[3].token);                                               // четвёртая: карточки нет, плейлист уже скрыт
+  assert.equal(m.cards(n).length, 0);
+
+  // /reports показывает открытые жалобы, /stats считает
+  n = w.calls.length;
+  await m.say("/reports");
+  cs = m.cards(n);
+  assert.equal(cs.length, 1);
+  assert.match(cs[0].text, /^🚩 📻 <b>Spammy list<\/b>/);
+  assert.match(cs[0].text, /Reports: 4/);
+  assert.deepEqual(m.kb(cs[0]), keyboard);
+  await m.say("/stats");
+  assert.match(m.lastOf("sendMessage").text, /Public playlists: 2 \(saves 0\) · Open playlist reports: 1 \(hidden 1\)/);
+
+  // не админ ничего нажать не может
+  await m.tap("pk:" + code, 5);
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Not allowed");
+  assert.equal(await m.count("pl_hidden"), 1);
+
+  // Keep: жалобы закрыты, плейлист снова в списке; новая жалоба от другого аккаунта снова зовёт модератора
+  await m.tap("pk:" + code);
+  assert.match(m.lastOf("editMessageText").text, /✅ <b>Kept<\/b> — reports closed/);
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Kept, visible in the app again");
+  assert.deepEqual(await names(), ["Fine list", "Spammy list"]);
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM pl_reports WHERE resolved=0").first()).n, 0);
+  await m.say("/reports");
+  assert.equal(m.lastOf("sendMessage").text, "No open reports.");
+  assert.deepEqual((await rep(rs[0].token)).json, { ok: true, dup: true });   // кто уже жаловался, второй раз не может
+  n = w.calls.length;
+  assert.deepEqual((await rep(rs[4].token, code, "other")).json, { ok: true });
+  assert.equal(m.cards(n).length, 1);
+
+  // Delete с карточки жалобы просит подтверждение, Cancel возвращает кнопки
+  await m.tap("px:" + code);
+  assert.deepEqual(m.lastOf("editMessageReplyMarkup").reply_markup.inline_keyboard[0].map(b => b.callback_data), ["pxy:" + code, "pxn:" + code]);
+  await m.tap("pxn:" + code);
+  assert.deepEqual(m.kb(m.lastOf("editMessageReplyMarkup")), keyboard);
+  assert.equal(await m.count("pubpl"), 2);
+  await m.tap("px:" + code); await m.tap("pxy:" + code);
+  assert.equal(await m.count("pubpl"), 1);
+  const ed = m.lastOf("editMessageText").text;
+  assert.match(ed, /^🚩 📻 <b>Spammy list<\/b>/);
+  assert.match(ed, /🗑 <b>Deleted<\/b> — it is gone from the app/);
+  for (const t of ["pl_reports", "pl_hidden", "pl_saves"]) assert.equal(await m.count(t), 0, t);
+  assert.deepEqual(await names(), ["Fine list"]);
+  const inb = (await w.call("GET", "/a/inbox", undefined, a.token)).json.items[0];
+  assert.deepEqual([inb.kind, inb.k, inb.tt, inb.ref], ["plremoved", code, "Spammy list", 0]);
+  // старые кнопки по удалённому плейлисту ничего не ломают
+  for (const d of ["pk:" + code, "pxy:" + code, "px:" + code, "pd:" + code, "py:" + code, "pn:" + code]) { await m.tap(d); assert.equal(m.lastOf("answerCallbackQuery").text, "Already deleted", d); }
+  // мусор вместо кода
+  await m.tap("pd:nonsense");
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Already deleted");
+
+  // жалоб не больше 10 в сутки с одного аккаунта (счёт общий с заметками)
+  const sp = (await w.reg("Spammer", "secret123", "4.4.9.9")).json;
+  const codes = [];
+  for (let i = 0; i < 12; i++) codes.push((await rep(sp.token, "AAAAAAA" + "23456789ABCD"[i])).status);
+  assert.deepEqual(codes, [404, 404, 404, 404, 404, 404, 404, 404, 404, 404, 429, 429]);
+});
+
+test("плейлисты у модератора: карточка Delete с подтверждением, /playlists, бан автора прячет плейлисты, разбан возвращает", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json, b = (await w.reg("Fan_Two", "secret123", "2.2.2.2")).json;
+  await age(w);
+  const c1 = await publish(w, a.token, { name: "A one" }), c2 = await publish(w, a.token, { name: "A two" }), c3 = await publish(w, b.token, { name: "B one" });
+  for (const [i, c] of [c1, c2, c3].entries()) await w.env.DB.prepare("UPDATE pubpl SET created=? WHERE code=?").bind(1000 + i, c).run();
+  const names = async () => (await w.call("GET", "/pl")).json.items.map(i => i.name);
+
+  // /playlists: последние сверху вниз от старых к новым (новые ближе к полю ввода), у каждого Delete и Ban author
+  let n = w.calls.length;
+  await m.say("/playlists");
+  let cs = m.cards(n);
+  assert.deepEqual(cs.map(c => c.text.match(/<b>(.*?)<\/b>/)[1]), ["A one", "A two", "B one"]);
+  assert.deepEqual(m.kb(cs[0]), [["pd:" + c1], ["b:" + a.id]]);
+  n = w.calls.length;
+  await m.say("/playlists FAN_ONE");
+  assert.equal(m.cards(n).length, 2);
+  await m.say("/playlists nobody");
+  assert.equal(m.lastOf("sendMessage").text, "No public playlists from that nickname.");
+  await m.say("/stats");
+  assert.match(m.lastOf("sendMessage").text, /Public playlists: 3 \(saves 0\) · Open playlist reports: 0 \(hidden 0\)\nPublic profiles: 0/);
+  await m.say("/user fan_one");
+  assert.match(m.lastOf("sendMessage").text, /Public playlists: 2 · Profile: private/);
+  await m.say("/help");
+  assert.match(m.lastOf("sendMessage").text, /\/playlists \[nick\]/);
+  assert.match(m.lastOf("sendMessage").text, /Public playlists go live at once/);
+
+  // Delete просит подтвердить; Cancel возвращает кнопки; Yes удаляет, автору приходит запись
+  await m.tap("pd:" + c2);
+  assert.deepEqual(m.lastOf("editMessageReplyMarkup").reply_markup.inline_keyboard[0].map(b => b.callback_data), ["py:" + c2, "pn:" + c2]);
+  await m.tap("pn:" + c2);
+  assert.deepEqual(m.kb(m.lastOf("editMessageReplyMarkup")), [["pd:" + c2], ["b:" + a.id]]);
+  assert.equal(await m.count("pubpl"), 3);
+  await m.tap("pd:" + c2); await m.tap("py:" + c2);
+  assert.equal(await m.count("pubpl"), 2);
+  assert.match(m.lastOf("editMessageText").text, /^📻 <b>A two<\/b> · Fan_One[\s\S]*🗑 <b>Deleted<\/b> — it is gone from the app$/);
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Deleted");
+  assert.deepEqual((await w.call("GET", "/a/inbox", undefined, a.token)).json.items.map(i => [i.kind, i.tt]), [["plremoved", "A two"]]);
+  assert.equal((await w.call("GET", "/pl/" + c2)).status, 404);
+
+  // бан автора: плейлисты пропадают из списка и по коду, но не стираются; разбан возвращает
+  await m.tap("b:" + a.id);
+  assert.equal(m.lastOf("answerCallbackQuery").text, "Author banned");
+  assert.deepEqual(await names(), ["B one"]);
+  assert.equal((await w.call("GET", "/pl/" + c1)).status, 404);
+  assert.equal(await m.count("pubpl"), 2);
+  assert.equal((await w.call("GET", "/a/pl/mine", undefined, a.token)).status, 401);
+  await m.say("/unban fan_one");
+  assert.deepEqual(await names(), ["B one", "A one"]);
+});
+
+test("своё: снять плейлист с публикации, список своих с кодами, чужие коды не трогаются", async () => {
+  const w = world();
+  const a = (await w.reg("Fan_One")).json, b = (await w.reg("Fan_Two", "secret123", "2.2.2.2")).json, s = (await w.reg("Saver", "secret123", "2.2.2.3")).json;
+  await age(w);
+  const c1 = await publish(w, a.token, { name: "Mine 1" }), c2 = await publish(w, a.token, { name: "Mine 2", desc: "" }), cb = await publish(w, b.token, { name: "Not yours" });
+  await w.env.DB.prepare("UPDATE pubpl SET updated=updated+10 WHERE code=?").bind(c1).run();
+  await w.call("POST", "/a/pl/save", { code: c1 }, s.token);
+
+  assert.equal((await w.call("GET", "/a/pl/mine")).status, 401);
+  const mine = (await w.call("GET", "/a/pl/mine", undefined, a.token)).json;
+  assert.equal(mine.max, 5);
+  assert.deepEqual(mine.items.map(i => i.code), [c1, c2]);
+  assert.deepEqual(mine.items[0], { code: c1, name: "Mine 1", desc: "Slow songs for the road home.", n: 4, saves: 1, cvi: 2, created: mine.items[0].created, updated: mine.items[0].updated, hidden: false });
+  assert.deepEqual((await w.call("GET", "/a/pl/mine", undefined, b.token)).json.items.map(i => i.code), [cb]);
+
+  assert.equal((await w.call("POST", "/a/pl/del", { code: c1 })).status, 401);
+  assert.equal((await w.call("POST", "/a/pl/del", { code: "bad" }, a.token)).json.error, "bad");
+  assert.deepEqual((await w.call("POST", "/a/pl/del", { code: cb }, a.token)).json, { ok: true, gone: true });   // чужой не снимается
+  assert.equal((await w.call("GET", "/pl/" + cb)).status, 200);
+  assert.deepEqual((await w.call("POST", "/a/pl/del", { code: c1.toLowerCase() }, a.token)).json, { ok: true, gone: false });
+  assert.deepEqual((await w.call("POST", "/a/pl/del", { code: c1 }, a.token)).json, { ok: true, gone: true });   // повтор тоже ok
+  assert.equal((await w.call("GET", "/pl/" + c1)).status, 404);
+  assert.equal((await w.env.DB.prepare("SELECT COUNT(*) AS n FROM pl_saves").first()).n, 0);
+  assert.deepEqual((await w.call("GET", "/a/pl/mine", undefined, a.token)).json.items.map(i => i.code), [c2]);
+  // освободившееся место можно занять новым
+  assert.equal((await w.call("POST", "/a/pl", PUB({ name: "Again" }), a.token)).status, 200);
+});
+
+test("профиль: по умолчанию закрыт, открытие и цвет аватара, значки и счётчики, чужой видит только открытый", async () => {
+  const w = world(), m = mod(w);
+  const a = (await w.reg("Fan_One")).json;
+  const get = (t = a.token) => w.call("GET", "/a/profile", undefined, t);
+  const setp = (o, t = a.token) => w.call("POST", "/a/profile", o, t);
+  const view = async (nick) => w.call("GET", "/u/" + nick);
+
+  assert.equal((await w.call("GET", "/a/profile")).status, 401);
+  assert.equal((await w.call("POST", "/a/profile", { public: true })).status, 401);
+  let p = (await get()).json;
+  assert.deepEqual([p.nick, p.public, p.av, p.badges], ["Fan_One", false, 0, []]);
+  assert.match(p.since, /^\d{4}-\d{2}$/);
+  assert.deepEqual(p.stats, { notes: 0, helpful: 0, playlists: 0, saves: 0 });
+  let me = (await w.call("GET", "/a/me", undefined, a.token)).json;
+  assert.deepEqual([me.prof, me.pl], [{ public: false, av: 0 }, 0]);
+
+  for (const bad of [{ av: 13 }, { av: -1 }, { av: 1.5 }, { av: "3" }, { public: "yes" }, { public: 1 }, { av: null }]) assert.equal((await setp(bad)).status, 400, JSON.stringify(bad));
+  // закрытый профиль, несуществующий ник и битая запись выглядят одинаково
+  for (const nick of ["Fan_One", "fan_one", "nobody", "%E0%A4%A", "x".repeat(60)]) {
+    const r = await view(nick);
+    assert.deepEqual([r.status, r.json.error], [404, "private"], nick);
+  }
+  assert.deepEqual((await setp({ av: 5 })).json, { ok: true, public: false, av: 5 });
+  assert.equal((await view("fan_one")).status, 404);                                          // цвет выбран, профиль всё ещё закрыт
+  assert.deepEqual((await setp({ public: true })).json, { ok: true, public: true, av: 5 });  // цвет остался
+  let pub = (await view("FAN_ONE")).json;
+  assert.deepEqual([pub.nick, pub.av, pub.badges, pub.stats], ["Fan_One", 5, [], { notes: 0, helpful: 0, playlists: 0, saves: 0 }]);
+  assert.deepEqual(Object.keys(pub).sort(), ["av", "badges", "nick", "since", "stats"]);      // больше ничего: ни номера, ни точной даты
+  me = (await w.call("GET", "/a/me", undefined, a.token)).json;
+  assert.deepEqual(me.prof, { public: true, av: 5 });
+
+  // значки: заметка, доверие, «Полезно» (10 / 50 / 100), плейлист, популярный плейлист (10 сохранений)
+  await w.call("POST", "/s", SUG({ text: "A note that earns a badge for its author." }), a.token);
+  await m.tap("a:1");
+  assert.deepEqual((await view("fan_one")).json.badges, ["note"]);
+  await m.say("/trust fan_one");
+  assert.deepEqual((await view("fan_one")).json.badges, ["note", "trusted"]);
+  for (const [n, want] of [[9, null], [10, "helpful1"], [49, "helpful1"], [50, "helpful2"], [100, "helpful3"]]) {
+    await w.env.DB.prepare("INSERT OR REPLACE INTO vote_n(sid,n) VALUES(1,?)").bind(n).run();
+    const b = (await view("fan_one")).json;
+    assert.deepEqual(b.badges, ["note", "trusted", ...(want ? [want] : [])], String(n));
+    assert.equal(b.stats.helpful, n);
+  }
+  await age(w);
+  const code = await publish(w, a.token);
+  assert.deepEqual((await view("fan_one")).json.badges, ["note", "trusted", "helpful3", "curator"]);
+  await w.env.DB.prepare("UPDATE pubpl SET saves=10 WHERE code=?").bind(code).run();
+  pub = (await view("fan_one")).json;
+  assert.deepEqual(pub.badges, ["note", "trusted", "helpful3", "curator", "popular"]);
+  assert.deepEqual([pub.stats.notes, pub.stats.playlists, pub.stats.saves], [1, 1, 10]);
+  // у списка и страницы плейлиста появляется открытый профиль автора: ник можно нажать, цвет виден
+  const li = (await w.call("GET", "/pl")).json.items[0], de = (await w.call("GET", "/pl/" + code)).json;
+  assert.deepEqual([li.pub, li.av, de.pub, de.av], [true, 5, true, 5]);
+  // закрыли профиль: ник в плейлисте остаётся, но без цвета и без перехода
+  await setp({ public: false });
+  assert.equal((await view("fan_one")).status, 404);
+  const li2 = (await w.call("GET", "/pl")).json.items[0];
+  assert.deepEqual([li2.nick, li2.pub, li2.av], ["Fan_One", false, 0]);
+  await setp({ public: true });
+  // заметка, спрятанная жалобами, и плейлист в скрытых значков не дают
+  await w.env.DB.prepare("INSERT INTO hidden(sid,at) VALUES(1,1)").run();
+  await w.env.DB.prepare("INSERT INTO pl_hidden(code,at) VALUES(?,1)").bind(code).run();
+  pub = (await view("fan_one")).json;
+  assert.deepEqual([pub.badges, pub.stats], [["trusted"], { notes: 0, helpful: 0, playlists: 0, saves: 0 }]);
+
+  // ник не латиницей и забаненный
+  const c = (await w.reg("Алиса", "secret123", "9.9.9.9")).json;
+  await setp({ public: true }, c.token);
+  assert.equal((await view(encodeURIComponent("алиса"))).json.nick, "Алиса");
+  await m.say("/ban Алиса");
+  assert.equal((await view(encodeURIComponent("Алиса"))).status, 404);
+  await m.say("/stats");
+  assert.match(m.lastOf("sendMessage").text, /Public profiles: 2/);
+
+  // не больше 60 изменений в час
+  const sts = [];
+  for (let i = 0; i < 62; i++) sts.push((await setp({ av: i % 13 }, a.token)).status);
+  assert.equal(sts.filter(s => s === 429).length > 0, true);
+});
+
+test("удаление аккаунта убирает его публичные плейлисты, сохранения, жалобы и профиль; счётчики сохранений сходятся", async () => {
+  const w = world();
+  const a = (await w.reg("Fan_One")).json, b = (await w.reg("Fan_Two", "secret123", "2.2.2.2")).json, c = (await w.reg("Fan_Three", "secret123", "2.2.2.3")).json;
+  await age(w);
+  const p1 = await publish(w, a.token, { name: "P1" }), p2 = await publish(w, b.token, { name: "P2" });
+  const save = (t, code) => w.call("POST", "/a/pl/save", { code }, t);
+  await save(b.token, p1); await save(c.token, p1); await save(a.token, p2); await save(c.token, p2);
+  await w.call("POST", "/a/pl/report", { code: p1, why: "other" }, b.token);
+  await w.call("POST", "/a/pl/report", { code: p2, why: "other" }, a.token);
+  await w.call("POST", "/a/profile", { public: true, av: 3 }, a.token);
+  await w.call("POST", "/a/profile", { public: true, av: 4 }, b.token);
+  const n = async (t) => (await w.env.DB.prepare(`SELECT COUNT(*) AS n FROM ${t}`).first()).n;
+  assert.deepEqual([await n("pubpl"), await n("pl_saves"), await n("pl_reports"), await n("profiles")], [2, 4, 2, 2]);
+
+  assert.equal((await w.call("POST", "/a/delete", { pw: dk("secret123", "Fan_One") }, a.token)).status, 200);
+  // плейлист удалённого автора ушёл со всем своим, его собственные сохранения и жалобы тоже; у чужого плейлиста счётчик пересчитан
+  assert.deepEqual([await n("pubpl"), await n("pl_saves"), await n("pl_reports"), await n("profiles")], [1, 1, 0, 1]);
+  assert.deepEqual((await w.call("GET", "/pl")).json.items.map(i => [i.name, i.saves]), [["P2", 1]]);
+  assert.equal((await w.call("GET", "/pl/" + p1)).status, 404);
+  assert.equal((await w.call("GET", "/u/fan_one")).status, 404);
+  assert.equal((await w.call("GET", "/u/fan_two")).json.av, 4);
+});
